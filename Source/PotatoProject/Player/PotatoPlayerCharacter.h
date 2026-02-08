@@ -34,7 +34,10 @@ protected:
 	float MaxCameraDistance = 800.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	float ZoomSpeed = 50.0f;
+	float CameraZoomSpeed = 50.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+	float CameraZoomInterpSpeed = 10.0f;
 	
 	// Walk & Sprint Speed
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
@@ -43,12 +46,19 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float SprintSpeed = 900.0f;
 	
+private:
+	float TargetCameraDistance;
+	FTimerHandle CameraZoomTimerHandle;
+	
+	void UpdateCameraZoom();
+	
 	// Functions
 public:
 	APotatoPlayerCharacter();
 	
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick( float DeltaTime ) override;
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	

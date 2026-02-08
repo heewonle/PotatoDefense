@@ -7,7 +7,7 @@
 
 APotatoPlayerCharacter::APotatoPlayerCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	
 	// Configure character movement
 	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
@@ -20,6 +20,9 @@ APotatoPlayerCharacter::APotatoPlayerCharacter()
 	CameraBoom->bUsePawnControlRotation = true;
 	CameraBoom->bEnableCameraLag = true;
 	CameraBoom->bEnableCameraRotationLag = true;
+	
+	// 카메라 줌인/줌아웃: 목표 거리 초기화
+	TargetCameraDistance = DefaultCameraDistance;
 
 	// create the orbiting camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -30,6 +33,24 @@ APotatoPlayerCharacter::APotatoPlayerCharacter()
 void APotatoPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+void APotatoPlayerCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	
+	// 카메라 줌인/줌아웃: 보간
+	if(CameraBoom && !FMath::IsNearlyEqual(CameraBoom->TargetArmLength, TargetCameraDistance, 0.1f))
+	{
+		float NewDistance = FMath::FInterpTo(
+			CameraBoom->TargetArmLength,
+			TargetCameraDistance,
+			DeltaTime,
+			CameraZoomInterpSpeed
+		);
+		
+		CameraBoom->TargetArmLength = NewDistance;
+	}
 }
 
 void APotatoPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -55,7 +76,7 @@ void APotatoPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 			{
 				EnhancedInput->BindAction(
 					PlayerController->JumpAction,
-					ETriggerEvent::Triggered,
+					ETriggerEvent::Started,
 					this,
 					&APotatoPlayerCharacter::StartJump
 				);
@@ -160,7 +181,7 @@ void APotatoPlayerCharacter::StartSprint(const FInputActionValue& Value)
 
 void APotatoPlayerCharacter::StopSprint(const FInputActionValue& Value)
 {
-	if (!GetCharacterMovement())
+	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
 	}
@@ -168,4 +189,10 @@ void APotatoPlayerCharacter::StopSprint(const FInputActionValue& Value)
 
 void APotatoPlayerCharacter::CameraZoom(const FInputActionValue& Value)
 {
+	float CameraZoomValue = Value.Get<float>();
+	
+	if (CameraBoom && CameraZoomValue != 0.0f)
+	{
+		TargetCameraDistance = FMath::Clamp(TargetCameraDistance + (CameraZoomValue * CameraZoomSpeed), MinCameraDistance, MaxCameraDistance);
+	}
 }
