@@ -18,3 +18,17 @@ void APotatoProjectile::Tick(float DeltaTime)
 
 }
 
+void APotatoProjectile::Launch(FVector Direction)
+{
+
+}
+
+void APotatoProjectile::OnHit(AActor* HitActor)
+{
+
+}
+
+void APotatoProjectile::Explode()
+{
+
+}

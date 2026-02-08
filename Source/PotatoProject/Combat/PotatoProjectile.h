@@ -16,6 +16,15 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+	float Damage;
+	float Speed;
+	FVector Velocity;
+	bool IsExplosive;
+	float ExplosionRadius;
+
 	virtual void Tick(float DeltaTime) override;
 
+	void Launch(FVector Direction);
+	void OnHit(AActor * HitActor);
+	void Explode();
 };

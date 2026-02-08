@@ -17,3 +17,17 @@ void APotatoWeapon::Tick(float DeltaTime)
 
 }
 
+void APotatoWeapon::Fire()
+{
+
+}
+
+bool APotatoWeapon::Reload()
+{
+	return false;
+}
+
+bool APotatoWeapon::CanFire()
+{
+	return false;
+}

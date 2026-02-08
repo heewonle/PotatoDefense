@@ -8,5 +8,9 @@ UCLASS()
 class POTATOPROJECT_API APotatoPumpkinLauncher : public APotatoWeapon
 {
 	GENERATED_BODY()
-	
+public:
+	float ExplosionRadius;
+
+	void Fire();
+	void Explode(FVector Location);
 };

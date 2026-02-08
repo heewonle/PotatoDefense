@@ -8,5 +8,6 @@ UCLASS()
 class POTATOPROJECT_API APotatoCornGun : public APotatoWeapon
 {
 	GENERATED_BODY()
-	
+public:
+	void Fire();
 };

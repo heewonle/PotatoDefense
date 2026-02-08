@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "../Core/PotatoEnums.h"
 #include "GameFramework/Actor.h"
 #include "PotatoWeapon.generated.h"
 
@@ -16,6 +17,16 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+	EWeaponType Type;
+	int Damage;
+	int MagazineSize;
+	int CurrentAmmo;
+	int CropCostPerShot;
+	float FireRate;
+
 	virtual void Tick(float DeltaTime) override;
 
+	void Fire();
+	bool Reload();
+	bool CanFire();
 };
