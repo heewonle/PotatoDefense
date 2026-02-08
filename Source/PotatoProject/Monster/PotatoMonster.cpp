@@ -17,3 +17,27 @@ void APotatoMonster::Tick(float DeltaTime)
 
 }
 
+void APotatoMonster::Move()
+{
+
+}
+
+void APotatoMonster::Attack(AActor* Target)
+{
+
+}
+
+void APotatoMonster::TakeDamage(float Damage)
+{
+
+}
+
+void APotatoMonster::Die()
+{
+
+}
+
+AActor APotatoMonster::FindTarget()
+{
+
+}
