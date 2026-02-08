@@ -25,7 +25,7 @@ void APotatoNPC::Work()
 
 bool APotatoNPC::PayMaintenance()
 {
-
+	return false;
 }
 
 void APotatoNPC::Retire()

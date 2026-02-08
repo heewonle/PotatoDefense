@@ -43,3 +43,22 @@ enum class ENPCType : uint8
     Lumberjack        UMETA(DisplayName = "벌목꾼"),
     Miner     UMETA(DisplayName = "광부")
 };
+
+UENUM(BlueprintType)
+enum class EBarricadeType : uint8
+{
+    WoodenFence        UMETA(DisplayName = "나무 울타리"),
+    StoneWall     UMETA(DisplayName = "석벽"),
+    Cart   UMETA(DisplayName = "수레"),
+    Barrel        UMETA(DisplayName = "나무통"),
+    SpikedFence        UMETA(DisplayName = "가시 울타리")
+};
+
+UENUM(BlueprintType)
+enum class EWeaponType : uint8
+{
+    Potato        UMETA(DisplayName = "감자"),
+    Corn     UMETA(DisplayName = "옥수수"),
+    Pumpkin   UMETA(DisplayName = "호박"),
+    Carrot        UMETA(DisplayName = "당근")
+};

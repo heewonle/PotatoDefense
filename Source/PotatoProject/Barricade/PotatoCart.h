@@ -8,5 +8,8 @@ UCLASS()
 class POTATOPROJECT_API APotatoCart : public APotatoBarricade
 {
 	GENERATED_BODY()
-	
+public:
+	bool ProvidesCover;
+
+	bool CheckCoverForPlayer();
 };

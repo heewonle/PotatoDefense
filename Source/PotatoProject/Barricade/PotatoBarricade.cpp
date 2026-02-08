@@ -18,3 +18,17 @@ void APotatoBarricade::Tick(float DeltaTime)
 
 }
 
+void APotatoBarricade::TakeDamage(float Damage)
+{
+
+}
+
+void APotatoBarricade::Repair()
+{
+
+}
+
+void APotatoBarricade::Destroy()
+{
+
+}

@@ -8,5 +8,8 @@ UCLASS()
 class POTATOPROJECT_API APotatoBarrel : public APotatoBarricade
 {
 	GENERATED_BODY()
-	
+public:
+	int RefundAmount;
+
+	void Destroy();
 };

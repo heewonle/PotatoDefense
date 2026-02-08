@@ -8,5 +8,6 @@ UCLASS()
 class POTATOPROJECT_API APotatoWoodenFence : public APotatoBarricade
 {
 	GENERATED_BODY()
-	
+public:
+	void TakeDamage(float Damage);
 };
