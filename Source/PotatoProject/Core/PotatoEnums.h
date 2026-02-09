@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Engine/UserDefinedEnum.h"
@@ -17,7 +17,24 @@ enum class EResourceType : uint8
 UENUM(BlueprintType)
 enum class EMonsterType : uint8
 {
-    Zombie        UMETA(DisplayName = "좀비"),
+    Zombie   UMETA(DisplayName = "좀비"),
+};
+
+
+UENUM(BlueprintType)
+enum class EMonsterRank : uint8
+{
+    Normal UMETA(DisplayName = "Normal"),
+    Elite  UMETA(DisplayName = "Elite"),
+    Boss   UMETA(DisplayName = "Boss")
+};
+
+UENUM(BlueprintType)
+enum class EMonsterSpecialLogic : uint8
+{
+    None        UMETA(DisplayName = "None"),
+    EliteAOE    UMETA(DisplayName = "EliteAOE"),
+    BossCustom  UMETA(DisplayName = "BossCustom"),
 };
 
 UENUM(BlueprintType)

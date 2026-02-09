@@ -15,7 +15,8 @@ FName APotatoMonster::GetRankRowName(EMonsterRank InRank)
 
 FName APotatoMonster::GetTypeRowName(EMonsterType InType)
 {
-	// DataTable RowName을 Enum 항목 이름
+	// ✅ DataTable RowName을 Enum 항목 이름과 동일하게 맞추면 가장 안정적
+	// 예) EMonsterType::Zombie -> "Zombie"
 	const UEnum* Enum = StaticEnum<EMonsterType>();
 	if (!Enum) return NAME_None;
 
