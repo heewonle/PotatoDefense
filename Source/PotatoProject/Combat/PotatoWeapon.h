@@ -5,7 +5,8 @@
 #include "GameFramework/Actor.h"
 #include "PotatoWeapon.generated.h"
 
-class PotatoProjectile;
+class APotatoProjectile;
+class UPotatoWeaponSystem;
 
 UCLASS()
 class POTATOPROJECT_API APotatoWeapon : public AActor
@@ -19,6 +20,7 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	EWeaponType Type;
 	//공격력
@@ -37,7 +39,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float FireRate;
 
-	PotatoProjectile* Projectile;
+	//원본 투사체
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	APotatoProjectile* Projectile;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TObjectPtr<UPotatoWeaponSystem> WeaponSystem;
 
 	virtual void Tick(float DeltaTime) override;
 

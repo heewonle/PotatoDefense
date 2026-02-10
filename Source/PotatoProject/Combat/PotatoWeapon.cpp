@@ -1,4 +1,6 @@
 #include "PotatoWeapon.h"
+#include "PotatoProjectile.h"
+#include "PotatoWeaponSystem.h"
 
 APotatoWeapon::APotatoWeapon()
 {
@@ -8,7 +10,12 @@ APotatoWeapon::APotatoWeapon()
 void APotatoWeapon::BeginPlay()
 {
 	Super::BeginPlay();
-	
+	if (UGameInstance* GI = GetGameInstance())
+	{
+
+		WeaponSystem = GI->GetSubsystem<UPotatoWeaponSystem>();
+	}
+
 }
 
 void APotatoWeapon::Tick(float DeltaTime)
@@ -19,7 +26,16 @@ void APotatoWeapon::Tick(float DeltaTime)
 
 void APotatoWeapon::Fire()
 {
-
+	
+	
+		if (WeaponSystem)
+		{
+			APotatoProjectile* newProjectile = DuplicateObject<APotatoProjectile>(Projectile, this);
+			WeaponSystem->Projectiles.Add(newProjectile);
+		}
+	
+	
+	
 }
 
 bool APotatoWeapon::Reload()
