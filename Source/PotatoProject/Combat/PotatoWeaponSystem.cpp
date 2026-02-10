@@ -1,29 +1,21 @@
 #include "PotatoWeaponSystem.h"
+#include "PotatoWeapon.h"
 
-PotatoWeaponSystem::PotatoWeaponSystem()
+void UPotatoWeaponSystem::EquipWeapon(int SlotIndex)
 {
+	CurrentWeapon = WeaponSlots[SlotIndex];
+}
+void UPotatoWeaponSystem::Fire()
+{
+	CurrentWeapon->Fire();
 }
 
-PotatoWeaponSystem::~PotatoWeaponSystem()
+void UPotatoWeaponSystem::Reload()
 {
+	CurrentWeapon->Reload();
 }
 
-void PotatoWeaponSystem::EquipWeapon(int SlotIndex)
+void UPotatoWeaponSystem::SwitchWeapon(int SlotIndex)
 {
-
-}
-
-void PotatoWeaponSystem::Fire()
-{
-
-}
-
-void PotatoWeaponSystem::Reload()
-{
-
-}
-
-void PotatoWeaponSystem::SwitchWeapon(int SlotIndex)
-{
-
+	CurrentWeapon = WeaponSlots[SlotIndex];
 }
