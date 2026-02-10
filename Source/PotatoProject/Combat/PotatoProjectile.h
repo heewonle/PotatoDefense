@@ -16,10 +16,15 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
 	float Damage;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
 	float Speed;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
 	FVector Velocity;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
 	bool IsExplosive;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
 	float ExplosionRadius;
 
 	virtual void Tick(float DeltaTime) override;

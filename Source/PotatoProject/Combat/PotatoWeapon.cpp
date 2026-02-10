@@ -24,7 +24,14 @@ void APotatoWeapon::Fire()
 
 bool APotatoWeapon::Reload()
 {
-	return false;
+	if (MagazineSize == CurrentAmmo)
+	{
+		return false;
+	}
+	else {
+		CurrentAmmo = MagazineSize;
+		return true;
+	}
 }
 
 bool APotatoWeapon::CanFire()

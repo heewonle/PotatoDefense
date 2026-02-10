@@ -1,15 +1,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Subsystems/Subsystem.h"
+#include "PotatoWeaponSystem.generated.h"
 
 class APotatoWeapon;
 
-class POTATOPROJECT_API PotatoWeaponSystem
+UCLASS()
+class POTATOPROJECT_API UPotatoWeaponSystem : public USubsystem
 {
+	GENERATED_BODY()
 public:
-	PotatoWeaponSystem();
-	~PotatoWeaponSystem();
-
 	TArray<APotatoWeapon*> WeaponSlots;
 	int CurrentSlotIndex;
 	APotatoWeapon* CurrentWeapon;

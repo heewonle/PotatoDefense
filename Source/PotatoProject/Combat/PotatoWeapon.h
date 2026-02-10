@@ -5,6 +5,8 @@
 #include "GameFramework/Actor.h"
 #include "PotatoWeapon.generated.h"
 
+class PotatoProjectile;
+
 UCLASS()
 class POTATOPROJECT_API APotatoWeapon : public AActor
 {
@@ -17,12 +19,25 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	EWeaponType Type;
+	//공격력
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	int Damage;
+	//최대탄약수
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	int MagazineSize;
+	//현재 장전 총알 수
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	int CurrentAmmo;
+	//샷1번당 소모량
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	int CropCostPerShot;
+	//발사속도
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float FireRate;
+
+	PotatoProjectile* Projectile;
 
 	virtual void Tick(float DeltaTime) override;
 
