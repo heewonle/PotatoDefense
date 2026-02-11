@@ -37,6 +37,7 @@ APotatoPlayerCharacter::APotatoPlayerCharacter()
 void APotatoPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	WeaponEqiup(true);
 }
 
 void APotatoPlayerCharacter::Tick(float DeltaTime)
@@ -233,23 +234,13 @@ void APotatoPlayerCharacter::CameraZoom(const FInputActionValue& Value)
 
 void APotatoPlayerCharacter::Attack(const FInputActionValue& Value)
 {
-	UE_LOG(LogTemp, Log, TEXT("isAttack!"));
-	if (WeaponOrigin)
-	{
-		UE_LOG(LogTemp, Log, TEXT("isorigin"));
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.Owner = this;
-		SpawnParams.Instigator = GetInstigator();
-		if (!Weapon) {
-			Weapon = GetWorld()->SpawnActor<APotatoWeapon>(WeaponOrigin, GetActorLocation(), GetActorRotation(), SpawnParams);
-		}
-	}
+
 	if (Value.Get<bool>())
 	{
-	UE_LOG(LogTemp, Log, TEXT("isAttack1!"));
+	//UE_LOG(LogTemp, Log, TEXT("isAttack1!"));
 		if (Weapon)
 		{
-			UE_LOG(LogTemp, Log, TEXT("isAttack2"));
+			//UE_LOG(LogTemp, Log, TEXT("isAttack2"));
 			Weapon->Fire();
 		}
 	}
@@ -267,5 +258,49 @@ void APotatoPlayerCharacter::Reload(const FInputActionValue& Value)
 }
 void APotatoPlayerCharacter::WeaponChange(const FInputActionValue& Value)
 {
+	if (Value.Get<bool>()) {
+	
+		APlayerController* PC = Cast<APlayerController>(GetController());
+		if (!PC) return;
+		int32 WeaponIndex = 1;
+		if (PC->IsInputKeyDown(EKeys::One) || PC->IsInputKeyDown(EKeys::NumPadOne))
+		{
+			WeaponIndex = 1;
+		}
+		if (PC->IsInputKeyDown(EKeys::Two) || PC->IsInputKeyDown(EKeys::NumPadTwo))
+		{
+			WeaponIndex = 2;
+		}
+		if (PC->IsInputKeyDown(EKeys::Three) || PC->IsInputKeyDown(EKeys::NumPadThree))
+		{
+			WeaponIndex = 3;
+		}
+		if (PC->IsInputKeyDown(EKeys::Four) || PC->IsInputKeyDown(EKeys::NumPadFour))
+		{
+			WeaponIndex = 4;
+		}
+		Weapon->ChangeWeapon(WeaponIndex);
+	}
 
+}
+
+void APotatoPlayerCharacter::WeaponEqiup(bool isEquip)
+{
+	if (isEquip) {
+		if (WeaponOrigin)
+		{
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = this;
+			SpawnParams.Instigator = GetInstigator();
+			if (!Weapon) {
+				Weapon = GetWorld()->SpawnActor<APotatoWeapon>(WeaponOrigin, GetActorLocation(), GetActorRotation(), SpawnParams);
+			}
+		}
+	}
+	else {
+		if (Weapon)
+		{
+			Weapon->Destroy();
+		}
+	}
 }

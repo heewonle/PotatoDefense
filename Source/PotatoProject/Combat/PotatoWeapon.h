@@ -52,4 +52,5 @@ public:
 	void Fire();
 	bool Reload();
 	bool CanFire();
+	void ChangeWeapon(int index);
 };

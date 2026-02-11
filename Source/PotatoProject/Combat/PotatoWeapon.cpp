@@ -45,13 +45,12 @@ void APotatoWeapon::Tick(float DeltaTime)
 
 void APotatoWeapon::Fire()
 {
-	
-	UE_LOG(LogTemp, Log, TEXT("fire3"));
-	//UWorld* World = GetWorld();
+
 		if (WeaponSystem)
 		{
-			UE_LOG(LogTemp, Log, TEXT("fire4"));
-			FVector SpawnLocation = FVector::ZeroVector; // 실제로는 총구 위치 등을 넣으세요
+			FTransform WeaponTransform = GetActorTransform();
+			FVector RelativeOffset = GetActorLocation().ForwardVector * -90.0f;
+			FVector SpawnLocation = WeaponTransform.TransformPosition(RelativeOffset);
 			FRotator SpawnRotation = FRotator::ZeroRotator;
 			FActorSpawnParameters SpawnParams;
 			APotatoProjectile* NewProjectile = GetWorld()->SpawnActor<APotatoProjectile>(
@@ -61,10 +60,11 @@ void APotatoWeapon::Fire()
 				SpawnParams
 			);
 			WeaponSystem->ProjectileLimit.Add(NewProjectile);
-		
-		}
-	
-	
+			FVector Direction = SpawnLocation - GetActorLocation();
+			UE_LOG(LogTemp, Log, TEXT("Direction %s"), *Direction.ToString());
+			NewProjectile->Launch(Direction);
+			WeaponSystem->LimitBullets();
+		}	
 	
 }
 
@@ -83,4 +83,9 @@ bool APotatoWeapon::Reload()
 bool APotatoWeapon::CanFire()
 {
 	return false;
+}
+
+void APotatoWeapon::ChangeWeapon(int index)
+{
+	
 }

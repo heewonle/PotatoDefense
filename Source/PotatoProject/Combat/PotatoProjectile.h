@@ -26,6 +26,8 @@ public:
 	bool IsExplosive;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
 	float ExplosionRadius;
+	UPROPERTY(VisibleAnywhere)
+	UStaticMeshComponent* Mesh;
 
 	virtual void Tick(float DeltaTime) override;
 

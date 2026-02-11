@@ -17,19 +17,22 @@ void UPotatoWeaponSystem::EquipWeapon(int SlotIndex)
 }
 void UPotatoWeaponSystem::Fire()
 {
+	
+}
+
+void UPotatoWeaponSystem::LimitBullets()
+{
 	//10개까지만 생성하고 가장 오래된 객체 삭제
 	if (ProjectileLimit.Num() >= 10)
 	{
+		AActor* OldestProjectile = ProjectileLimit[0];
+		if (IsValid(OldestProjectile))
+		{
+			OldestProjectile->Destroy();
+		}
 		if (ProjectileLimit.IsValidIndex(0)) {
 			ProjectileLimit.RemoveAt(0);
 		}
-		//Projectiles.RemoveAt(0);
-	}
-	if (IsValid(CurrentWeaponInstance))
-	{
-		UE_LOG(LogTemp, Log, TEXT("fire2"));
-		
-		CurrentWeaponInstance->Fire();
 	}
 }
 

@@ -91,4 +91,6 @@ protected:
 	void Reload(const FInputActionValue& Value);
 	UFUNCTION()
 	void WeaponChange(const FInputActionValue& Value);
+
+	void WeaponEqiup(bool isEquip);
 	};

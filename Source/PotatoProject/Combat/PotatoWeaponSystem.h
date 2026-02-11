@@ -30,6 +30,7 @@ public:
 	void Fire();
 	void Reload();
 	void SwitchWeapon(int SlotIndex);
+	void LimitBullets();
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 };
