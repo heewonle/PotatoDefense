@@ -45,9 +45,8 @@ public:
 	
 	// 스탯
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
-	int32 ConstructionCpst = 10;
+	int32 ConstructionCost = 10;
 	
-	/** 밤에 건설이 가능한지 여부를 결정 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
 	bool bIsDestructible = true;
 	

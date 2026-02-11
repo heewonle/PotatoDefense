@@ -1,26 +1,45 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Core/Interactable.h"
 #include "PotatoPlaceableStructure.generated.h"
 
+class UPotatoStructureData;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnStructureInteracted, AActor*, Interactor);
+
 UCLASS()
-class POTATOPROJECT_API APotatoPlaceableStructure : public AActor
+class POTATOPROJECT_API APotatoPlaceableStructure : public AActor, public IInteractable
 {
 	GENERATED_BODY()
 	
 public:	
-	// Sets default values for this actor's properties
 	APotatoPlaceableStructure();
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
+	// Data Asset
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Config", meta = (ExposeOnSpawn = "true"))
+	TObjectPtr<const UPotatoStructureData> StructureData;
+	
+	// Stats: 상태
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
+	float CurrentHealth;
+	
+	// Interaction: 상호작용
+	UPROPERTY(BlueprintAssignable, Category = "Interaction")
+	FOnStructureInteracted OnInteractedDelegate;
+	
+	virtual void Interact(AActor* Interactor) override;
+	
+	// 헬퍼 함수
+	/** 이 구조물이 파괴될 수 있으면 true를 반환 */
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	bool IsDestructible() const;
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void TakeDamage(float Amount);
 };

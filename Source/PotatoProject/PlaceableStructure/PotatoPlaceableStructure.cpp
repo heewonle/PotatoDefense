@@ -1,27 +1,73 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "PotatoPlaceableStructure.h"
+#include "PotatoStructureData.h"
 
-// Sets default values
 APotatoPlaceableStructure::APotatoPlaceableStructure()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-
+	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+	
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
 }
 
-// Called when the game starts or when spawned
 void APotatoPlaceableStructure::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	if (StructureData)
+	{
+		if (StructureData->bIsDestructible)
+		{
+			CurrentHealth = StructureData->MaxHealth;
+		}
+		else
+		{
+			CurrentHealth = -1.0f; // 파괴 불가능
+		}
+		
+		UE_LOG(LogTemp, Warning, TEXT("%s Initialized!"), *StructureData->DisplayName.ToString());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Structure 객체가 DataAsset 없이 스폰됐습니다!"));
+	}
 }
 
-// Called every frame
-void APotatoPlaceableStructure::Tick(float DeltaTime)
+void APotatoPlaceableStructure::Interact(AActor* Interactor)
 {
-	Super::Tick(DeltaTime);
-
+	if (IsDestructible() && CurrentHealth <= 0.0f)
+	{
+		return;
+	}
+	
+	if (OnInteractedDelegate.IsBound())
+	{
+		OnInteractedDelegate.Broadcast(Interactor);
+	}
 }
 
+bool APotatoPlaceableStructure::IsDestructible() const
+{
+	if (StructureData)
+	{
+		return StructureData->bIsDestructible;
+	}
+
+	return false;
+}
+
+void APotatoPlaceableStructure::TakeDamage(float Amount)
+{
+	if (!IsDestructible() || CurrentHealth <= 0.0f)
+	{
+		return;
+	}
+	
+	CurrentHealth = FMath::Clamp(CurrentHealth - Amount, 0.0f, StructureData->MaxHealth);
+
+	if (CurrentHealth <= 0.0f)
+	{
+		// 파괴 처리: FX 재생 등
+		// OnStructureDestroyed.Broadcast();
+		Destroy();
+	}
+}
