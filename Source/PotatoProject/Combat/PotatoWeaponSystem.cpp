@@ -4,29 +4,38 @@
 
 void UPotatoWeaponSystem::EquipWeapon(int SlotIndex)
 {
-	CurrentWeapon = WeaponSlots[SlotIndex];
-	Fire();
+	if (CurrentWeapon)
+	{
+		CurrentWeapon = WeaponSlots[SlotIndex];
+		// 1. 기존 무기가 있다면 파괴
+		if (CurrentWeaponInstance) CurrentWeaponInstance->Destroy();
+
+		// 2. 설계도를 바탕으로 실제 무기 소환
+		FActorSpawnParameters Params;
+		CurrentWeaponInstance = GetWorld()->SpawnActor<APotatoWeapon>(CurrentWeapon, Params);
+	}
 }
 void UPotatoWeaponSystem::Fire()
 {
 	//10개까지만 생성하고 가장 오래된 객체 삭제
-	if (Projectiles.Num() >= 10)
+	if (ProjectileLimit.Num() >= 10)
 	{
-		APotatoProjectile* OldestProjectile = Projectiles[0];
-
-		if (IsValid(OldestProjectile))
-		{
-			OldestProjectile->Destroy();
+		if (ProjectileLimit.IsValidIndex(0)) {
+			ProjectileLimit.RemoveAt(0);
 		}
-
-		Projectiles.RemoveAt(0);
+		//Projectiles.RemoveAt(0);
 	}
-	CurrentWeapon->Fire();
+	if (IsValid(CurrentWeaponInstance))
+	{
+		UE_LOG(LogTemp, Log, TEXT("fire2"));
+		
+		CurrentWeaponInstance->Fire();
+	}
 }
 
 void UPotatoWeaponSystem::Reload()
 {
-	CurrentWeapon->Reload();
+	CurrentWeaponInstance->Reload();
 }
 
 void UPotatoWeaponSystem::SwitchWeapon(int SlotIndex)

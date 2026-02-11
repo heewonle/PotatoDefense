@@ -7,6 +7,8 @@
 class USpringArmComponent;
 class UCameraComponent;
 
+class APotatoWeapon;
+
 struct FInputActionValue;
 
 UCLASS()
@@ -45,10 +47,15 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float SprintSpeed = 900.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TSubclassOf<APotatoWeapon> WeaponOrigin;
 	
 private:
 	float TargetCameraDistance;
 	FTimerHandle CameraZoomTimerHandle;
+
+	APotatoWeapon* Weapon;
 	
 	void UpdateCameraZoom();
 	
@@ -77,4 +84,11 @@ protected:
 	void StopSprint(const FInputActionValue& Value);
 	UFUNCTION()
 	void CameraZoom(const FInputActionValue& Value);
+
+	UFUNCTION()
+	void Attack(const FInputActionValue& Value);
+	UFUNCTION()
+	void Reload(const FInputActionValue& Value);
+	UFUNCTION()
+	void WeaponChange(const FInputActionValue& Value);
 	};

@@ -4,6 +4,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "../Combat/PotatoWeapon.h"
 
 APotatoPlayerCharacter::APotatoPlayerCharacter()
 {
@@ -28,6 +29,9 @@ APotatoPlayerCharacter::APotatoPlayerCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+
+	//
+	
 }
 
 void APotatoPlayerCharacter::BeginPlay()
@@ -123,6 +127,36 @@ void APotatoPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 					&APotatoPlayerCharacter::CameraZoom
 				);
 			}
+
+
+			if (PlayerController->AttackAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->AttackAction,
+					ETriggerEvent::Started,
+					this,
+					&APotatoPlayerCharacter::Attack
+				);
+			}
+
+			if (PlayerController->ReloadAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->ReloadAction,
+					ETriggerEvent::Started,
+					this,
+					&APotatoPlayerCharacter::Reload
+				);
+			}
+			if (PlayerController->WeaponChangeAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->WeaponChangeAction,
+					ETriggerEvent::Started,
+					this,
+					&APotatoPlayerCharacter::WeaponChange
+				);
+			}
 		}
 	}
 }
@@ -195,4 +229,43 @@ void APotatoPlayerCharacter::CameraZoom(const FInputActionValue& Value)
 	{
 		TargetCameraDistance = FMath::Clamp(TargetCameraDistance + (CameraZoomValue * CameraZoomSpeed), MinCameraDistance, MaxCameraDistance);
 	}
+}
+
+void APotatoPlayerCharacter::Attack(const FInputActionValue& Value)
+{
+	UE_LOG(LogTemp, Log, TEXT("isAttack!"));
+	if (WeaponOrigin)
+	{
+		UE_LOG(LogTemp, Log, TEXT("isorigin"));
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.Instigator = GetInstigator();
+		if (!Weapon) {
+			Weapon = GetWorld()->SpawnActor<APotatoWeapon>(WeaponOrigin, GetActorLocation(), GetActorRotation(), SpawnParams);
+		}
+	}
+	if (Value.Get<bool>())
+	{
+	UE_LOG(LogTemp, Log, TEXT("isAttack1!"));
+		if (Weapon)
+		{
+			UE_LOG(LogTemp, Log, TEXT("isAttack2"));
+			Weapon->Fire();
+		}
+	}
+}
+void APotatoPlayerCharacter::Reload(const FInputActionValue& Value)
+{
+	if (Value.Get<bool>())
+	{
+		if (Weapon)
+		{
+			Weapon->Reload();
+		}
+
+	}
+}
+void APotatoPlayerCharacter::WeaponChange(const FInputActionValue& Value)
+{
+
 }

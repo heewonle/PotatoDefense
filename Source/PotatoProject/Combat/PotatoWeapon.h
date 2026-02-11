@@ -43,7 +43,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	APotatoProjectile* Projectile;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	TObjectPtr<UPotatoWeaponSystem> WeaponSystem;
+	TSubclassOf<APotatoProjectile> ProjectileOrigin;
+	UPROPERTY()
+	UPotatoWeaponSystem* WeaponSystem;
 
 	virtual void Tick(float DeltaTime) override;
 

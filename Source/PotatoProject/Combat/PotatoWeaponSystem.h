@@ -8,17 +8,23 @@ class APotatoWeapon;
 
 class APotatoProjectile;
 
-UCLASS()
+UCLASS(Blueprintable, BlueprintType)
 class POTATOPROJECT_API UPotatoWeaponSystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
 public:
-
-	TArray<APotatoWeapon*> WeaponSlots;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TArray<TSubclassOf<APotatoWeapon>> WeaponSlots;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	int CurrentSlotIndex;
-	APotatoWeapon* CurrentWeapon;
-
-	TArray<APotatoProjectile*> Projectiles;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TSubclassOf<APotatoWeapon> CurrentWeapon;
+	UPROPERTY()
+	APotatoWeapon* CurrentWeaponInstance;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TArray<TSubclassOf<APotatoProjectile>> Projectiles;
+	UPROPERTY()
+	TArray<APotatoProjectile*> ProjectileLimit;
 
 	void EquipWeapon(int SlotIndex);
 	void Fire();
