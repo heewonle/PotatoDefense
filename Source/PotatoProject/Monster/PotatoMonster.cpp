@@ -1,280 +1,98 @@
 ﻿#include "PotatoMonster.h"
+
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Kismet/GameplayStatics.h"
-
-// SpecialSkill row struct 헤더가 cpp에서 필요함 (FindRow 템플릿)
-#include "PotatoMonsterSpecialSkillPresetRow.h" // 너의 파일명에 맞춰 수정
-
-FName APotatoMonster::GetRankRowName(EMonsterRank InRank)
-{
-    switch (InRank)
-    {
-    case EMonsterRank::Normal: return FName("Normal");
-    case EMonsterRank::Elite:  return FName("Elite");
-    case EMonsterRank::Boss:   return FName("Boss");
-    default:                   return FName("Normal");
-    }
-}
-
-FName APotatoMonster::GetTypeRowName(EMonsterType InType)
-{
-    const UEnum* Enum = StaticEnum<EMonsterType>();
-    if (!Enum) return NAME_None;
-
-    const FString Name = Enum->GetNameStringByValue((int64)InType);
-    return FName(*Name);
-}
+#include "PotatoPresetApplier.h"
+#include "PotatoCombatComponent.h"
 
 APotatoMonster::APotatoMonster()
 {
-    PrimaryActorTick.bCanEverTick = false;
-    AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+	PrimaryActorTick.bCanEverTick = false;
+	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
-    bPresetsApplied = false;
+	CombatComp = CreateDefaultSubobject<UPotatoCombatComponent>(TEXT("CombatComp"));
 }
 
 void APotatoMonster::BeginPlay()
 {
-    Super::BeginPlay();
-
-    // ✅ 정석 흐름: ApplyPresets()는 AIController::OnPossess에서 1회 호출
-    // 여기서는 호출하지 않음
+	Super::BeginPlay();
+	// ApplyPresetsOnce는 AIController::OnPossess에서 호출
 }
 
-void APotatoMonster::ApplyPresetsFallback()
+void APotatoMonster::ApplyPresetsOnce()
 {
-    AttackDamage = 10.0f;
-    AttackRange = 150.0f;
+	if (bPresetsApplied) return;
+	bPresetsApplied = true;
 
-    AppliedHpMultiplier = (Rank == EMonsterRank::Elite) ? 2.5f :
-        (Rank == EMonsterRank::Boss) ? 10.0f : 1.0f;
+	FinalStats = UPotatoPresetApplier::BuildFinalStats(
+		this,
+		MonsterType,
+		Rank,
+		WaveBaseHP,
+		PlayerReferenceSpeed,
+		TypePresetTable,
+		RankPresetTable,
+		SpecialSkillPresetTable,
+		DefaultBehaviorTree
+	);
 
-    AppliedMoveSpeedRatio = (Rank == EMonsterRank::Elite) ? 0.8f : 0.6f;
+	MaxHealth = FinalStats.MaxHP;
+	Health = MaxHealth;
 
-    StructureDamageMultiplier = (Rank == EMonsterRank::Elite) ? 1.5f :
-        (Rank == EMonsterRank::Boss) ? 3.0f : 1.0f;
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->MaxWalkSpeed = FinalStats.MoveSpeed;
+	}
 
-    const float BaseHP = (WaveBaseHP > 0.f) ? WaveBaseHP : 100.0f;
-    MaxHealth = BaseHP * AppliedHpMultiplier;
-    Health = MaxHealth;
+	ResolvedBehaviorTree = FinalStats.BehaviorTree;
 
-    Speed = PlayerReferenceSpeed * AppliedMoveSpeedRatio;
-    if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-    {
-        MoveComp->MaxWalkSpeed = Speed;
-    }
-
-    ResolvedBehaviorTree = DefaultBehaviorTree;
-
-    ResolvedSpecialSkillId = NAME_None;
-    AppliedSpecialLogic = EMonsterSpecialLogic::None;
-    ResolvedSpecialCooldown = 0.f;
-    ResolvedSpecialDamageMultiplier = 1.f;
+	if (CombatComp)
+	{
+		CombatComp->InitFromStats(FinalStats);
+	}
 }
 
-void APotatoMonster::ApplyPresets()
+float APotatoMonster::TakeDamage(
+	float DamageAmount,
+	FDamageEvent const& DamageEvent,
+	AController* EventInstigator,
+	AActor* DamageCauser
+)
 {
-    // ✅ 1회 적용 가드 (Spawner/Controller 중복 호출 방지)
-    if (bPresetsApplied)
-    {
-        return;
-    }
-    bPresetsApplied = true;
+	if (bIsDead) return 0.f;
 
-    // -------------------------
-    // 기본값
-    // -------------------------
-    float TypeBaseHP = 100.0f;
-    float TypeBaseAttackDamage = 10.0f;
-    float TypeBaseAttackRange = 150.0f;
-    float TypeMoveSpeedMul = 1.0f;
+	const float Applied = FMath::Max(0.f, DamageAmount);
+	if (Applied <= 0.f) return 0.f;
 
-    FName TypeDefaultSkillId = NAME_None;
-
-    ResolvedBehaviorTree = DefaultBehaviorTree;
-
-    // -------------------------
-    // 1) TypePreset
-    // -------------------------
-    const FPotatoMonsterTypePresetRow* TypeRow = nullptr;
-
-    if (TypePresetTable)
-    {
-        const FName TypeRowName = GetTypeRowName(MonsterType);
-        if (TypeRowName != NAME_None)
-        {
-            TypeRow = TypePresetTable->FindRow<FPotatoMonsterTypePresetRow>(
-                TypeRowName, TEXT("APotatoMonster::ApplyPresets(TypePreset)")
-            );
-        }
-    }
-
-    if (TypeRow)
-    {
-        TypeBaseHP = TypeRow->BaseHP;
-        TypeBaseAttackDamage = TypeRow->BaseAttackDamage;
-        TypeBaseAttackRange = TypeRow->BaseAttackRange;
-        TypeMoveSpeedMul = TypeRow->MoveSpeedMultiplier;
-
-        TypeDefaultSkillId = TypeRow->DefaultSpecialSkillId;
-
-        if (TypeRow->OverrideBehaviorTree.IsValid())
-        {
-            ResolvedBehaviorTree = TypeRow->OverrideBehaviorTree.Get();
-        }
-        else if (!TypeRow->OverrideBehaviorTree.IsNull())
-        {
-            ResolvedBehaviorTree = TypeRow->OverrideBehaviorTree.LoadSynchronous();
-        }
-        else
-        {
-            ResolvedBehaviorTree = DefaultBehaviorTree;
-        }
-    }
-    else
-    {
-        ResolvedBehaviorTree = DefaultBehaviorTree;
-    }
-
-    AttackDamage = TypeBaseAttackDamage;
-    AttackRange = TypeBaseAttackRange;
-
-    const float BaseHP = (WaveBaseHP > 0.f) ? WaveBaseHP : TypeBaseHP;
-
-    // -------------------------
-    // 2) RankPreset
-    // -------------------------
-    const FPotatoMonsterRankPresetRow* RankRow = nullptr;
-
-    float RankCooldownMul = 1.0f;
-    float RankSpecialDmgMul = 1.0f;
-    FName RankDefaultSkillId = NAME_None;
-
-    if (RankPresetTable)
-    {
-        const FName RankRowName = GetRankRowName(Rank);
-        RankRow = RankPresetTable->FindRow<FPotatoMonsterRankPresetRow>(
-            RankRowName, TEXT("APotatoMonster::ApplyPresets(RankPreset)")
-        );
-    }
-
-    if (!RankRow)
-    {
-        ApplyPresetsFallback();
-        return;
-    }
-
-    float HpMul = RankRow->HpMultiplierMin;
-    if (RankRow->HpMultiplierMax > RankRow->HpMultiplierMin + KINDA_SMALL_NUMBER)
-    {
-        HpMul = FMath::FRandRange(RankRow->HpMultiplierMin, RankRow->HpMultiplierMax);
-    }
-
-    AppliedHpMultiplier = HpMul;
-    MaxHealth = BaseHP * AppliedHpMultiplier;
-    Health = MaxHealth;
-
-    AppliedMoveSpeedRatio = RankRow->MoveSpeedRatioToPlayer;
-    Speed = PlayerReferenceSpeed * AppliedMoveSpeedRatio * TypeMoveSpeedMul;
-
-    if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-    {
-        MoveComp->MaxWalkSpeed = Speed;
-    }
-
-    StructureDamageMultiplier = RankRow->StructureDamageMultiplier;
-
-    RankDefaultSkillId = RankRow->DefaultSpecialSkillId;
-    RankCooldownMul = RankRow->SpecialCooldownMultiplier;
-    RankSpecialDmgMul = RankRow->SpecialDamageMultiplier;
-
-    // -------------------------
-    // 3) 최종 SpecialSkillId 선택 (Type > Rank)
-    // -------------------------
-    ResolvedSpecialSkillId =
-        (TypeDefaultSkillId != NAME_None) ? TypeDefaultSkillId :
-        (RankDefaultSkillId != NAME_None) ? RankDefaultSkillId :
-        NAME_None;
-
-    AppliedSpecialLogic = EMonsterSpecialLogic::None;
-    ResolvedSpecialCooldown = 0.f;
-    ResolvedSpecialDamageMultiplier = 1.f;
-
-    // -------------------------
-    // 4) SpecialSkillPreset 적용
-    // -------------------------
-    if (ResolvedSpecialSkillId != NAME_None && SpecialSkillPresetTable)
-    {
-        const FPotatoMonsterSpecialSkillPresetRow* SkillRow =
-            SpecialSkillPresetTable->FindRow<FPotatoMonsterSpecialSkillPresetRow>(
-                ResolvedSpecialSkillId, TEXT("APotatoMonster::ApplyPresets(SkillPreset)")
-            );
-
-        if (SkillRow)
-        {
-            AppliedSpecialLogic = SkillRow->Logic;
-            ResolvedSpecialCooldown = SkillRow->Cooldown * RankCooldownMul;
-            ResolvedSpecialDamageMultiplier = SkillRow->DamageMultiplier * RankSpecialDmgMul;
-        }
-        else
-        {
-            ResolvedSpecialSkillId = NAME_None;
-            AppliedSpecialLogic = EMonsterSpecialLogic::None;
-            ResolvedSpecialCooldown = 0.f;
-            ResolvedSpecialDamageMultiplier = 1.f;
-        }
-    }
-}
-
-void APotatoMonster::Attack(AActor* Target)
-{
-    if (bIsDead || !Target) return;
-
-    const float Dist = FVector::Dist(GetActorLocation(), Target->GetActorLocation());
-    if (Dist > AttackRange) return;
-
-    const float FinalDamage = AttackDamage;
-    UGameplayStatics::ApplyDamage(Target, FinalDamage, GetController(), this, nullptr);
-}
-
-void APotatoMonster::ApplyDamage(float Damage)
-{
-    if (bIsDead || Damage <= 0.f) return;
-
-    Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
-    if (Health <= 0.f) Die();
+	Health = FMath::Clamp(Health - Applied, 0.f, MaxHealth);
+	if (Health <= 0.f)
+	{
+		Die();
+	}
+	return Applied;
 }
 
 void APotatoMonster::Die()
 {
-    if (bIsDead) return;
-    bIsDead = true;
+	if (bIsDead) return;
+	bIsDead = true;
 
-    if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-    {
-        MoveComp->DisableMovement();
-    }
-}
-
-AActor* APotatoMonster::FindTarget()
-{
-    if (CurrentTarget) return CurrentTarget;
-    return WarehouseActor;
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->DisableMovement();
+	}
 }
 
 void APotatoMonster::AdvanceLaneIndex()
 {
-    // ✅ 끝 이후 무한 증가 방지(중요)
-    const int32 MaxEndIndex = LanePoints.Num(); // 끝 상태(Num)까지는 허용
-    LaneIndex = FMath::Clamp(LaneIndex + 1, 0, MaxEndIndex);
+	// LanePoints의 마지막을 넘기면 GetCurrentLaneTarget이 Warehouse로 fallback
+	LaneIndex = FMath::Clamp(LaneIndex + 1, 0, LanePoints.Num());
 }
 
 AActor* APotatoMonster::GetCurrentLaneTarget() const
 {
-    if (LanePoints.IsValidIndex(LaneIndex))
-    {
-        return LanePoints[LaneIndex];
-    }
-
-    return WarehouseActor;
+	if (LanePoints.IsValidIndex(LaneIndex))
+	{
+		return LanePoints[LaneIndex];
+	}
+	return WarehouseActor;
 }

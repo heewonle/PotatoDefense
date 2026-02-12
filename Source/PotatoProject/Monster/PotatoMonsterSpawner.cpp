@@ -1,7 +1,5 @@
 ﻿#include "PotatoMonsterSpawner.h"
 #include "PotatoMonster.h"
-
-// ✅ 새로 만든 C++ 인터페이스
 #include "BPI_LanePathProvider.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -127,10 +125,6 @@ APotatoMonster* APotatoMonsterSpawner::SpawnOne(EMonsterType Type, EMonsterRank 
         UE_LOG(LogTemp, Warning, TEXT("[Spawner] DefaultWarehouseActor is NULL (Wave=%s)"), *CurrentWaveId.ToString());
     }
 
-    // =========================================================
-    // 1) ✅ C++ 인터페이스로 LanePoints를 "정식 호출"해서 가져오기
-    //    - LanePoints[0]을 Entry(스폰지점)로 사용
-    // =========================================================
     TArray<AActor*> LanePointsRaw;
     bool bHasLane = false;
 
@@ -179,7 +173,7 @@ APotatoMonster* APotatoMonsterSpawner::SpawnOne(EMonsterType Type, EMonsterRank 
     if (!Monster) return nullptr;
 
     // =========================================================
-    // ✅ Spawner 책임: "데이터 주입"만 (AI/BB/MoveTarget 금지)
+    // Spawner 책임: "데이터 주입"만 (AI/BB/MoveTarget 금지)
     // =========================================================
     Monster->WarehouseActor = DefaultWarehouseActor;
     Monster->Rank = Rank;
@@ -224,7 +218,6 @@ APotatoMonster* APotatoMonsterSpawner::SpawnOne(EMonsterType Type, EMonsterRank 
 
 FVector APotatoMonsterSpawner::GetSpawnLocationByGroup(FName /*SpawnGroup*/) const
 {
-    // (옵션) fallback 랜덤 스폰이 필요할 때만 사용
     const FVector Origin = GetActorLocation();
     const float Radius = 300.f;
 

@@ -25,17 +25,21 @@ void APotatoAIController::OnPossess(APawn* InPawn)
     APotatoMonster* Monster = Cast<APotatoMonster>(InPawn);
     if (!Monster) return;
 
-    // 프리셋 적용(기존 유지)
-    Monster->ApplyPresets();
+    // =========================================================
+    // 0) 스폰 1회 프리셋 적용 (진행사항 반영: ApplyPresetsOnce)
+    // =========================================================
+    Monster->ApplyPresetsOnce();
 
+    // =========================================================
+    // 1) 실행할 BT 결정 (Resolved -> Default fallback)
+    // =========================================================
     UBehaviorTree* BT = Monster->GetBehaviorTreeToRun();
     if (!BT || !BT->BlackboardAsset) return;
 
-    // 1) Blackboard 초기화
+    // =========================================================
+    // 2) Blackboard 초기화 -> BT 실행
+    // =========================================================
     BlackboardComp->InitializeBlackboard(*BT->BlackboardAsset);
-
-    // 2) BT 실행 (엔진 표준 흐름에 맞추기 위해 초기화 후 바로 실행)
-    //    - 아래에서 BB 값 세팅해도 BT는 다음 틱/재평가에서 따라온다
     RunBehaviorTree(BT);
 
     // =========================================================
@@ -51,30 +55,21 @@ void APotatoAIController::OnPossess(APawn* InPawn)
     }
 
     // =========================================================
-    // 4) MoveTarget 초기값 세팅 (정석: 레인 있으면 첫 포인트, 없으면 Warehouse)
-    //    - "MoveTarget은 BT만" 원칙으로 가려면,
-    //      여기(=AI 주체인 Controller)에서 딱 1회 초기화하고,
-    //      이후 갱신은 BTTask_AdvanceLaneTarget이 책임진다.
-    //    - OnPossess가 다시 불릴 수도 있으니,
-    //      이미 값이 있으면 덮어쓰지 않는 가드 추가(리셋 방지)
+    // 4) MoveTarget 1회 초기화 (레인 첫 포인트 or Warehouse)
+    //    - 이미 값이 있으면 덮어쓰지 않음(리셋 방지)
     // =========================================================
     {
         UObject* Existing = BlackboardComp->GetValueAsObject(Key_MoveTarget);
         if (!IsValid(Cast<AActor>(Existing)))
         {
-            // LaneIndex는 스포너가 0으로 넣는 게 정상.
-            // 혹시라도 꼬였을 때를 대비해 0으로만 고정하고 싶으면 주석 해제:
-            // Monster->LaneIndex = 0;
-
             AActor* FirstTarget = nullptr;
 
-            // LanePoints가 있으면 현재 레인 타겟
+            // 레인이 있으면 현재 레인 타겟(없으면 Warehouse fallback)
             if (Monster->LanePoints.Num() > 0)
             {
-                FirstTarget = Monster->GetCurrentLaneTarget(); // LanePoints[LaneIndex] or WarehouseActor fallback
+                FirstTarget = Monster->GetCurrentLaneTarget();
             }
 
-            // 레인이 없거나 유효 타겟이 없으면 Warehouse로 바로
             if (!IsValid(FirstTarget))
             {
                 FirstTarget = Monster->WarehouseActor;
@@ -89,13 +84,20 @@ void APotatoAIController::OnPossess(APawn* InPawn)
                 BlackboardComp->ClearValue(Key_MoveTarget);
             }
         }
-        // else: 이미 세팅돼 있으면 절대 덮어쓰지 않음 (리셋 방지)
     }
 
     // =========================================================
-    // 5) 상태값 초기 동기화 (기존 유지)
+    // 5) 상태 동기화 (진행사항 반영: SpecialLogic은 FinalStats 기준)
     // =========================================================
     BlackboardComp->SetValueAsBool(Key_bIsDead, Monster->bIsDead);
-    BlackboardComp->SetValueAsInt(Key_SpecialLogic, static_cast<int32>(Monster->AppliedSpecialLogic));
+
+    // SpecialLogic 키를 계속 쓸 거면 FinalStats에서 가져오기
+    // (BB 타입이 Int라면 아래처럼 유지)
+    BlackboardComp->SetValueAsInt(
+        Key_SpecialLogic,
+        static_cast<int32>(Monster->FinalStats.SpecialLogic)
+    );
+
+    // 전투 타겟은 BT/서비스가 갱신하게 두고, possess 시점에는 비움
     BlackboardComp->ClearValue(Key_CurrentTarget);
 }

@@ -24,8 +24,6 @@ struct FPendingSpawn
 
     float EntryDelay = 0.f;
     FName SpawnGroup;
-
-    // 내부용
     bool bEntryDelayConsumed = false;
 };
 
@@ -76,8 +74,6 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Wave|Settings")
     float DefaultWaveBaseHP = 0.f;
 
-    // ==== Lane (BP LanePathManager) ====
-    // BP_LanePathManager 인스턴스를 여기 넣고, BP Interface(GetLanePoints)로 경유지 배열을 받아온다
     UPROPERTY(EditInstanceOnly, Category = "Lane")
     TObjectPtr<AActor> LanePathManager = nullptr;
 

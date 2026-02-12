@@ -48,7 +48,7 @@ EBTNodeResult::Type UBT_AdvanceLaneTarget::ExecuteTask(UBehaviorTreeComponent& O
     UE_LOG(LogTemp, Warning, TEXT("[AdvanceLaneTarget] Before: LaneIndex=%d Points=%d PawnLoc=%s"),
         Monster->LaneIndex, Monster->LanePoints.Num(), *Monster->GetActorLocation().ToString());
 
-    // ✅ 끝 이후 무한 증가 방지 (선택이지만 추천)
+    // 끝 이후 무한 증가 방지 (선택이지만 추천)
     if (Monster->LaneIndex >= Monster->LanePoints.Num())
     {
         // 이미 Lane이 끝났다면 그냥 Warehouse로 유지
@@ -80,7 +80,7 @@ EBTNodeResult::Type UBT_AdvanceLaneTarget::ExecuteTask(UBehaviorTreeComponent& O
         return EBTNodeResult::Succeeded;
     }
 
-    // ✅ Lane 끝(또는 NextTarget이 Warehouse로 판정) -> Abort하지 말고 "이어가기"
+    // Lane 끝(또는 NextTarget이 Warehouse로 판정) -> Abort하지 말고 "이어가기"
     BB->SetValueAsObject(MoveTargetKey.SelectedKeyName, Warehouse);
 
     AActor* After = Cast<AActor>(BB->GetValueAsObject(MoveTargetKey.SelectedKeyName));
