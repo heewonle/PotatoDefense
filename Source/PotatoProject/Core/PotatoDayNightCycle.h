@@ -1,23 +1,81 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Subsystems/Subsystem.h"
+#include "PotatoEnums.h"
 #include "PotatoDayNightCycle.generated.h"
 
-UCLASS()
-class POTATOPROJECT_API UPotatoDayNightCycle : public USubsystem
-{
-	GENERATED_BODY()
-public:
-	float PhaseTimer;
-	float DayDuration;
-	float NightDuration;
-	bool IsDay;
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPhaseChanged);
 
-	void StartDay();
-	void StartNight();
-	void UpdateTimer(float DeltaTime);
-	float GetRemainingTime();
-	void TriggerWarning();
-	bool GetIsDay();
+UCLASS()
+class POTATOPROJECT_API UPotatoDayNightCycle : public UWorldSubsystem
+{
+    GENERATED_BODY()
+
+private:
+    EDayPhase CurrentPhase = EDayPhase::Day;
+    float RemainingTime = 0.f;
+
+    bool bIsStarted = false;
+
+    // Day Phase 전환 핸들러
+    FTimerHandle PhaseTimerHandle;
+
+    float CachedDayDuration = 0.f;
+    float CachedEveningDuration = 0.f;
+    float CachedNightDuration = 0.f;
+    float CachedDawnDuration = 0.f;
+
+    // 게임 Timer Tick 핸들러
+    FTimerHandle TickTimerHandle;
+
+    UFUNCTION()
+    void OnTimerTick();
+
+#pragma region DayData
+public:
+    // Gamemode에서 Init용으로
+    UFUNCTION(BlueprintCallable, Category = "DaySystem")
+    void StartSystem(float InDayDuration, float InEveningDuration, float InNightDuration, float InDawnDuration);
+    UFUNCTION(BlueprintCallable, Category = "DaySystem")
+    void EndSystem();
+    UFUNCTION(BlueprintPure, Category = "DaySystem")
+    bool IsSystemStarted() const { return bIsStarted; }
+
+    UFUNCTION(BlueprintCallable, Category = "DayNight")
+    void EnterDay(float InDayDuration);
+
+    UFUNCTION(BlueprintCallable, Category = "DayNight")
+    void EnterEvening(float InEveningDuration);
+
+    UFUNCTION(BlueprintCallable, Category = "DayNight")
+    void EnterNight(float InNightDuration);
+
+    UFUNCTION(BlueprintCallable, Category = "DayNight")
+    void EnterDawn(float InDawnDuration);
+
+    UFUNCTION(BlueprintCallable, Category = "DayNight")
+    EDayPhase GetCurrentPhase() const { return CurrentPhase; }
+
+public:
+    UPROPERTY(BlueprintAssignable, Category = "DayNight|Event")
+    FOnPhaseChanged OnDayStarted;
+
+    UPROPERTY(BlueprintAssignable, Category = "DayNight|Event")
+    FOnPhaseChanged OnEveningStarted;
+
+    UPROPERTY(BlueprintAssignable, Category = "DayNight|Event")
+    FOnPhaseChanged OnNightStarted;
+
+    UPROPERTY(BlueprintAssignable, Category = "DayNight|Event")
+    FOnPhaseChanged OnDawnStarted;
+
+#pragma endregion DayData
+
+public:
+    UFUNCTION(BlueprintCallable, Category = "DayNight")
+    float GetRemainingDayTime() const { return RemainingTime; }
+
+protected:
+    virtual void Deinitialize() override;
+
 };
