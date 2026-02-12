@@ -12,7 +12,7 @@ class POTATOPROJECT_API APotatoPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 	
-	// Input
+	// Input	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	UInputMappingContext* InputMappingContext;

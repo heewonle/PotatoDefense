@@ -10,6 +10,7 @@ class APotatoPlaceableStructure;
 class UPotatoStructureData;
 class UInputMappingContext;
 class UInputAction;
+struct FInputActionValue;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class POTATOPROJECT_API UBuildingSystemComponent : public UActorComponent
@@ -22,7 +23,9 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
+	
+	void SetupInputBindings();
+	
 public:
 	// =================================================================
 	// Input Configuration (Enhanced Input)
@@ -37,9 +40,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> RotateStructureAction;
 	
-	// 디버깅용 슬롯 선택 IA
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
-	TObjectPtr<UInputAction> SelectSlotAction;
+	TObjectPtr<UInputAction> CycleStructureAction;
 	
 	// =================================================================
 	// Configuration (Blueprint에서 편집 가능)
@@ -50,45 +52,47 @@ public:
 	float GritUnitSize = 50.0f;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Building")
-	float MaxBuildDistance = 1000.0f;
+	float MaxBuildDistance = 1500.0f;
 	
-	/** 디버깅용 슬롯*/
+	/** 사용 가능한 모든 구조물 목록: 순환을 위한 정렬된 리스트 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Building")
 	TArray<TObjectPtr<const UPotatoStructureData>> StructureSlots;
 	
 	// =================================================================
-	// State (UI/애니메이션용 읽기 전용)
+	// State (UI용 읽기 전용)
 	// =================================================================
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Building")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsBuildMode = false;
 	
-	/** 현재 배치하려는 구조물의 데이터 */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Building")
-	const UPotatoStructureData* CurrentStructureData;
-	
-	/** 고스트 액터: 배치 전 시각적 표현 */
-	UPROPERTY()
-	APotatoPlaceableStructure* CurrentGhostActor;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	int32 CurrentSlotIndex = 0;
 	
 	/** 현재 회전 인덱스 (0=0, 1=90, 2=180, 3=270) */
 	int32 CurrentRotationIndex = 0;
 	
-	// =================================================================
-	// Core Logic API
-	// =================================================================
+	/** 고스트 액터: 배치 전 시각적 표현 */
+	UPROPERTY()
+	TObjectPtr<APotatoPlaceableStructure> GhostActor;
 	
 public:
-	/** 빌드 모드 토글: 캐릭터에 의해 호출됨(B키) */
+	/** 빌드 모드 토글: 플레이어 컨트롤러에 의해 호출됨(B키) */
 	UFUNCTION(BlueprintCallable, Category = "Building")
-	void ToggleBuildMode(bool bEnable);
-	
-	/** 건물 유형 선택: 입력(키 1~4) 또는 UI(위젯 클릭)에 의해 호출됨 */
-	UFUNCTION(BlueprintCallable, Category = "Building")
-	void SelectStructure(const UPotatoStructureData* NewData);
+	void ToggleBuildMode();
 	
 private:
 	// =================================================================
 	// Internal Logic & Input Handlers
 	// =================================================================
+
+	void OnPlaceStructure(const FInputActionValue& Value);
+	void OnRotateStructure(const FInputActionValue& Value);
+	void OnCycleStructure(const FInputActionValue& Value);
+	
+	FVector CalculateSnappedLocation(const FVector& HitLocation) const;
+	
+	void UpdateGhostActorTransform();
+	void RefreshGhostActorModel();
+	
+	const UPotatoStructureData* GetSelectedData() const;
 };
