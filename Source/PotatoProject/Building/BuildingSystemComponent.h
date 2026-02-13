@@ -49,7 +49,7 @@ public:
 	
 	/** 단일 그리드 셀 크기: 언리얼 유닛 단위 (50.0f = 0.5m)*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Building")
-	float GritUnitSize = 50.0f;
+	float GridUnitSize = 50.0f;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Building")
 	float MaxBuildDistance = 1500.0f;

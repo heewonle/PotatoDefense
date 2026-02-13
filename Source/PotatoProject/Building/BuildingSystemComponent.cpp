@@ -153,7 +153,50 @@ void UBuildingSystemComponent::OnCycleStructure(const FInputActionValue& Value)
 
 FVector UBuildingSystemComponent::CalculateSnappedLocation(const FVector& HitLocation) const
 {
-	return FVector::ZeroVector;
+	const UPotatoStructureData* SelectedData = GetSelectedData();
+	if (!SelectedData)
+	{
+		return HitLocation;
+	}
+	
+	// 1. 회전에 따른 차원 결정
+	bool bIsRotated = (CurrentRotationIndex % 2 != 0); // 90도 또는 270도 회전 시(인덱스 1, 3) X,Y 스왑
+	int32 SizeX, SizeY;
+	
+	if (bIsRotated)
+	{
+		SizeX = SelectedData->GridSize.Y;
+		SizeY = SelectedData->GridSize.X;
+	}
+	else
+	{
+		SizeX = SelectedData->GridSize.X;
+		SizeY = SelectedData->GridSize.Y;
+	}
+	
+	float SnappedX, SnappedY;
+	
+	// 2. X축 로직
+	if (SizeX % 2 == 0) // 짝수일 경우 가장 가까운 그리드 라인에 스냅 (e.g. 0, 50, 100)
+	{
+		SnappedX = FMath::RoundToFloat(HitLocation.X / GridUnitSize) * GridUnitSize;
+	}
+	else // 홀수일 경우 타일의 중앙에 스냅 (e.g. 25, 75, 125): 그리드 라인으로 내림 후 절반 크기 더하기
+	{
+		SnappedX = (FMath::FloorToFloat(HitLocation.X / GridUnitSize) * GridUnitSize) + (GridUnitSize * 0.5f);
+	}
+	
+	// 3. Y축 로직
+	if (SizeY % 2 == 0)
+	{
+		SnappedY = FMath::RoundToFloat(HitLocation.Y / GridUnitSize) * GridUnitSize;
+	}
+	else
+	{
+		SnappedY = (FMath::FloorToFloat(HitLocation.Y / GridUnitSize) * GridUnitSize) + (GridUnitSize * 0.5f);
+	}
+	
+	return FVector(SnappedX, SnappedY, HitLocation.Z);
 }
 
 void UBuildingSystemComponent::UpdateGhostActorTransform()
@@ -179,10 +222,10 @@ void UBuildingSystemComponent::UpdateGhostActorTransform()
 	
 	if (bIsFloor)
 	{
-		FVector TargetLocation = Hit.Location;
-		FRotator TargetRotation = FRotator(0.0f, CurrentRotationIndex * 90.0f, 0.0f);
+		FVector SnappedLocation = CalculateSnappedLocation(Hit.Location);
+		FRotator SnappedRotation = FRotator(0, CurrentRotationIndex * 90.0f, 0);
 		
-		GhostActor->SetActorLocationAndRotation(TargetLocation, TargetRotation);
+		GhostActor->SetActorLocationAndRotation(SnappedLocation, SnappedRotation);
 		GhostActor->SetActorHiddenInGame(false);
 	}
 	else
