@@ -175,8 +175,9 @@ void UBuildingSystemComponent::UpdateGhostActorTransform()
 	QueryParams.AddIgnoredActor(GhostActor);
 	
 	bool bIsTraceHit = GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, TraceEnd, ECC_WorldStatic, QueryParams);
+	bool bIsFloor = bIsTraceHit && (Hit.ImpactNormal.Z > 0.9f);
 	
-	if (bIsTraceHit)
+	if (bIsFloor)
 	{
 		FVector TargetLocation = Hit.Location;
 		FRotator TargetRotation = FRotator(0.0f, CurrentRotationIndex * 90.0f, 0.0f);
