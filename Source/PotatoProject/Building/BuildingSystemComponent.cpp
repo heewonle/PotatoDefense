@@ -5,6 +5,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "GeometryTypes.h"
 #include "Kismet/GameplayStatics.h"
+#include "DrawDebugHelpers.h"
 
 UBuildingSystemComponent::UBuildingSystemComponent()
 {
@@ -114,7 +115,7 @@ void UBuildingSystemComponent::OnPlaceStructure(const FInputActionValue& Value)
 	if (!bIsPlacementValid || GhostActor->IsHidden())
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, TEXT("이 장소에는 배치할 수 없습니다!"));
-		// TODO: 오류 사운드 재생?
+		// TODO: 오류 사운드 재생
 		return;
 	}
 	
@@ -261,6 +262,7 @@ void UBuildingSystemComponent::UpdateGhostActorTransform()
 	
 	if (bIsFloor)
 	{
+		
 		GhostActor->SetActorHiddenInGame(false);
 		
 		// 스냅
@@ -271,6 +273,9 @@ void UBuildingSystemComponent::UpdateGhostActorTransform()
 		// 유효성 검사
 		const UPotatoStructureData* SelectedData = GetSelectedData();
 		bIsPlacementValid = CheckPlacementValidity(SnappedLocation, SnappedRotation, SelectedData);
+		
+		// 디버그: 그리드 시각화
+		DrawOccupiedGrid(SnappedLocation, SnappedRotation, SelectedData);
 		
 		// 녹색 또는 빨간색
 		UpdateGhostActorMaterials();
@@ -342,6 +347,32 @@ void UBuildingSystemComponent::RefreshGhostActorModel()
 
 }
 
+void UBuildingSystemComponent::DrawOccupiedGrid(const FVector& Location, const FRotator& Rotation,
+	const UPotatoStructureData* Data)
+{
+	if (!bShowOccupiedGrid || !Data)
+	{
+		return;
+	}
+	
+	FVector BoxExtent;
+	BoxExtent.X = (Data->GridSize.X * GridUnitSize) * 0.5f;
+	BoxExtent.Y = (Data->GridSize.Y * GridUnitSize) * 0.5f;
+	BoxExtent.Z = 1.0f;
+	
+	FVector DebugCenter = Location + FVector(0.0f, 0.0f, 2.0f);
+	
+	DrawDebugSolidBox(
+		GetWorld(),
+		DebugCenter,
+		BoxExtent,
+		Rotation.Quaternion(),
+		FColor::White,
+		false,
+		-1.0f,
+		0);
+}
+
 const UPotatoStructureData* UBuildingSystemComponent::GetSelectedData() const
 {
 	if (StructureSlots.IsValidIndex(CurrentSlotIndex))
@@ -381,6 +412,7 @@ bool UBuildingSystemComponent::CheckPlacementValidity(const FVector& Location, c
 	
 	FCollisionObjectQueryParams ObjectParams;
 	ObjectParams.AddObjectTypesToQuery(ECC_WorldStatic);
+	ObjectParams.AddObjectTypesToQuery(ECC_WorldDynamic);
 	ObjectParams.AddObjectTypesToQuery(ECC_Pawn);
 	// 필요 시 추가
 	

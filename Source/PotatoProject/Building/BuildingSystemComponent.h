@@ -58,6 +58,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Building")
 	TArray<TObjectPtr<const UPotatoStructureData>> StructureSlots;
 	
+	/** 디버그 전용: 그리드 셀 시각화 토글 */
+	UPROPERTY(EditAnywhere, Category = "Building")
+	bool bShowOccupiedGrid = true;
+	
 	// =================================================================
 	// State (UI용 읽기 전용)
 	// =================================================================
@@ -107,6 +111,9 @@ private:
 	void UpdateGhostActorTransform();
 	void UpdateGhostActorMaterials();
 	void RefreshGhostActorModel();
+	
+	/** 그리드 공간 시각화: bShowOccupiedGrid가 true일 때만 실행됨 */
+	void DrawOccupiedGrid(const FVector& Location, const FRotator& Rotation, const UPotatoStructureData* Data);
 private:
 	bool bIsPlacementValid = false;
 };
