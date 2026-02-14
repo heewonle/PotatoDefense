@@ -1,0 +1,50 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#include "Animal/PotatoAnimalController.h"
+#include "Animal/PotatoAnimal.h"
+#include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/BehaviorTreeComponent.h"
+#include "BehaviorTree/BlackboardComponent.h"
+#include "Components/BoxComponent.h"
+
+const FName APotatoAnimalController::Key_BarnActor(TEXT("BarnActor"));
+const FName APotatoAnimalController::Key_BarnBounds(TEXT("BarnBounds"));
+
+APotatoAnimalController::APotatoAnimalController()
+{
+    BlackboardComp = CreateDefaultSubobject<UBlackboardComponent>(TEXT("BlackboardComp"));
+    BehaviorComp = CreateDefaultSubobject<UBehaviorTreeComponent>(TEXT("BehaviorComp"));
+}
+
+void APotatoAnimalController::OnPossess(APawn* InPawn)
+{
+    Super::OnPossess(InPawn);
+
+    APotatoAnimal* Animal = Cast<APotatoAnimal>(InPawn);
+    if (!Animal) return;
+
+    if (!BehaviorTreeAsset || !BehaviorTreeAsset->BlackboardAsset) return;
+
+    BlackboardComp->InitializeBlackboard(*BehaviorTreeAsset->BlackboardAsset);
+    RunBehaviorTree(BehaviorTreeAsset);
+
+    if (IsValid(Animal->AssignedBarn))
+    {
+        BlackboardComp->SetValueAsObject(Key_BarnActor, Animal->AssignedBarn);
+    }
+    
+    if (IsValid(Animal->MovingArea))
+    {
+        BlackboardComp->SetValueAsObject(Key_BarnBounds, Animal->MovingArea);
+    }
+}
+
+void APotatoAnimalController::OnUnPossess()
+{
+    Super::OnUnPossess();
+
+    if (BehaviorComp)
+    {
+        BehaviorComp->StopTree();
+    }
+}
