@@ -1,4 +1,5 @@
 #include "PotatoNPC.h"
+#include "PotatoNPCController.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Core/PotatoProductionComponent.h"
@@ -10,6 +11,9 @@ APotatoNPC::APotatoNPC()
 
 	// 건물 설정 후 수동으로 AIController 부착 (작업지시 후 SpawnDefaultController)
 	AutoPossessAI = EAutoPossessAI::Disabled;
+
+	// AI Controller 기본 클래스 설정
+	AIControllerClass = APotatoNPCController::StaticClass();
 
     if (UCapsuleComponent* Capsule = GetCapsuleComponent())
     {
