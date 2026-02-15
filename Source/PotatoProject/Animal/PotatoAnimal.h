@@ -2,11 +2,16 @@
 
 #include "CoreMinimal.h"
 #include "../Core/PotatoEnums.h"
-#include "GameFramework/Actor.h"
+#include "GameFramework/Character.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "PotatoAnimal.generated.h"
 
-UCLASS()
-class POTATOPROJECT_API APotatoAnimal : public AActor
+class UPotatoProductionComponent;
+class UBoxComponent;
+
+UCLASS(Blueprintable)
+class POTATOPROJECT_API APotatoAnimal : public ACharacter
 {
 	GENERATED_BODY()
 	
@@ -17,13 +22,20 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
-	EAnimalType Type;
-	int CropCost;
-	float CropProductionRate;
-	float LivestockProductionRate;
-	int RefundAmount;
+	// 생산/경제 컴포넌트 (비용, 분당 생산량, 환급 모두 여기서 관리)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animal|Production")
+	TObjectPtr<UPotatoProductionComponent> ProductionComp;
 
-	virtual void Tick(float DeltaTime) override;
+	// Type
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animal")
+	EAnimalType AnimalType = EAnimalType::Cow;
 
-	void Produce();
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Animal|Runtime")
+	TObjectPtr<AActor> AssignedBarn = nullptr;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Animal|Runtime")
+	TObjectPtr<UBoxComponent> MovingArea = nullptr;
+
+    UFUNCTION(BlueprintCallable, Category = "Animal|Runtime")
+	void InitializeWithBarn(AActor* InBarn, UBoxComponent* InBounds);
 };
