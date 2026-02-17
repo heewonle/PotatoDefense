@@ -173,7 +173,10 @@ void UPotatoWeaponComponent::Fire()
 			{
 				NewProjectile->InitializeProjectile(
 					CurrentWeaponData->ProjectileSpeed,
-					CurrentWeaponData->ProjectileGravityScale
+					CurrentWeaponData->ProjectileGravityScale,
+					CurrentWeaponData->BaseDamage,
+					CurrentWeaponData->MaxPierceCount,
+					CurrentWeaponData->ExplosionRadius
 				);
 			}
 		}
