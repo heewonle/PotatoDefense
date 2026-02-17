@@ -28,6 +28,11 @@ void UPotatoNPCManagementComp::BeginPlay()
         UE_LOG(LogTemp, Warning, TEXT("NPCManagement: No BoxComponent found on owner [%s]."),
             *GetNameSafe(GetOwner()));
     }
+
+    GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+    {
+        HireNPC(ENPCType::Lumberjack);
+    });
 }
 
 bool UPotatoNPCManagementComp::HireNPC(ENPCType NPCType)

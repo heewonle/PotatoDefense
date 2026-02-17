@@ -177,6 +177,8 @@ void UPotatoResourceManager::OnProductionTick()
     AccumulateAndFlush(TotalProductionPerMinuteStone, AccumulatedStone, ProductionTickInterval, EResourceType::Stone);
     AccumulateAndFlush(TotalProductionPerMinuteCrop, AccumulatedCrop, ProductionTickInterval, EResourceType::Crop);
     AccumulateAndFlush(TotalProductionPerMinuteLivestock, AccumulatedLivestock, ProductionTickInterval, EResourceType::Livestock);
+
+    UE_LOG(LogTemp, Log, TEXT("Current Resources - Wood: %d, Stone: %d, Crop: %d, Livestock: %d"), Wood, Stone, Crop, Livestock);
 }
 
 // 초당 생산량 누적 후 정수 단위로 자원 추가
