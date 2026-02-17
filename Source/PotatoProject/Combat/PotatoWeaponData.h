@@ -75,4 +75,8 @@ public:
 	/** 산탄 분산 각도(degree): 당근 = 15.0 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hitscan", meta = (EditCondition = "FireType == EWeaponFireType::Hitscan", EditConditionHides))
 	float SpreadAngle = 0.0f;
+	
+	/** 히트스캔 적중 시 스폰할 시각적 액터 (e.g. 벽에 박히는 당근) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Hitscan", meta = (EditCondition = "FireType == EWeaponFireType::Hitscan", EditConditionHides))
+	TSubclassOf<AActor> HitscanActorClass;
 };

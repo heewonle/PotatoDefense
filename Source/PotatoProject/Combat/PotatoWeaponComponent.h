@@ -41,5 +41,16 @@ public:
 	FVector GetMuzzleLocation() const;
 	
 private:
+	FVector GetCrosshairTargetLocation() const;
+	
+	/** 물리적인 투사체(감자, 옥수수, 호박)를 스폰하는 로직을 처리 */
+	void FireProjectile(const FVector& TargetLocation);
+	
+	/** 히트스캔 로직(당근)을 처리 */
+	void FireHitscan(const FVector& TargetLocation);
+	
+	/** 시각적 당근 Actor를 스폰 */
+	void SpawnHitscanVisual(const FHitResult& HitResult, const FVector& ShotDirection);
+	
 	void SpawnWeapon(TSubclassOf<APotatoWeapon> NewClass);
 };

@@ -3,6 +3,7 @@
 #include "../Monster/PotatoMonster.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/SphereComponent.h"
+#include "PotatoWeaponData.h"
 
 APotatoProjectile::APotatoProjectile()
 {
@@ -37,20 +38,24 @@ void APotatoProjectile::BeginPlay()
 
 }
 
-void APotatoProjectile::InitializeProjectile(float InSpeed, float InGravityScale, float InDamage, int32 InPierceCount, float InExplosionRadius)
+void APotatoProjectile::InitializeProjectile(const UPotatoWeaponData* WeaponData)
 {
-	if (ProjectileMovement)
+	if (!WeaponData)
 	{
-		ProjectileMovement->InitialSpeed = InSpeed;
-		ProjectileMovement->MaxSpeed = InSpeed;
-		ProjectileMovement->ProjectileGravityScale = InGravityScale;
-		
-		ProjectileMovement->Velocity = GetActorForwardVector() * InSpeed;
+		return;
 	}
 	
-	Damage = InDamage;
-	PierceCount = InPierceCount;
-	ExplosionRadius = InExplosionRadius;
+	Damage = WeaponData->BaseDamage;
+	PierceCount = WeaponData->MaxPierceCount;
+	ExplosionRadius = WeaponData->ExplosionRadius;
+	
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->InitialSpeed = WeaponData->ProjectileSpeed;
+		ProjectileMovement->MaxSpeed = WeaponData->ProjectileSpeed;
+		ProjectileMovement->ProjectileGravityScale = WeaponData->ProjectileGravityScale;
+		ProjectileMovement->Velocity = GetActorForwardVector() * WeaponData->ProjectileSpeed;
+	}
 }
 
 void APotatoProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,

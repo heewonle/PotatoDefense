@@ -6,6 +6,7 @@
 #include "PotatoProjectile.generated.h"
 
 class USphereComponent;
+class UPotatoWeaponData;
 
 UCLASS()
 class POTATOPROJECT_API APotatoProjectile : public AActor
@@ -33,7 +34,7 @@ public:
 	float ExplosionRadius = 0.0f;
 	
 	/** WeaponComponent에 의해 호출됨 */
-	void InitializeProjectile(float InSpeed, float InGravityScale, float InDamage, int32 InPierceCount, float InExplosionRadius);
+	void InitializeProjectile(const UPotatoWeaponData* WeaponData);
 
 protected:
 	// 충돌 델리게이트
