@@ -109,6 +109,11 @@ void UPotatoWeaponComponent::EquipWeapon(int32 SlotIndex)
 		                                 SlotIndex));
 }
 
+bool UPotatoWeaponComponent::CanFire() const
+{
+	return true;
+}
+
 void UPotatoWeaponComponent::Fire()
 {
 	if (!CurrentWeaponData || !CurrentWeaponActor)

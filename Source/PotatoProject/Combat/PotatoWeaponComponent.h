@@ -2,10 +2,28 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Core/PotatoEnums.h"
 #include "PotatoWeaponComponent.generated.h"
 
 class UPotatoWeaponData;
 class APotatoWeapon;
+
+USTRUCT(BlueprintType)
+struct FWeaponAmmoState
+{
+	GENERATED_BODY()
+	
+	/** 현재 장전된 탄약 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	int32 CurrentAmmo = 0;
+	
+	/** 농작물로 제작된 예비 탄약 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	int32 ReserveAmmo = 0;
+	
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAmmoChangedDelegate, int32, CurrentAmmo, int32, CurrentReserveAmmo);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class POTATOPROJECT_API UPotatoWeaponComponent : public UActorComponent
@@ -31,16 +49,29 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<APotatoWeapon> CurrentWeaponActor;
+
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	EWeaponState CurrentState = EWeaponState::Idle;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	TMap<TObjectPtr<UPotatoWeaponData>, FWeaponAmmoState> AmmoState;
+	
+public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	void EquipWeapon(int32 SlotIndex);
 	
+	UFUNCTION(BlueprintPure, Category = "State")
+	bool CanFire() const;
+	
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void Fire();
-	
-	FVector GetMuzzleLocation() const;
+
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnAmmoChangedDelegate OnAmmoChanged;
 	
 private:
+	FVector GetMuzzleLocation() const;
 	FVector GetCrosshairTargetLocation() const;
 	
 	/** 물리적인 투사체(감자, 옥수수, 호박)를 스폰하는 로직을 처리 */
