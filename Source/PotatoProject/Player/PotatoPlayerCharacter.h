@@ -53,6 +53,13 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float SprintSpeed = 900.0f;
+
+	//최대 체력
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxHP = 100.0f;
+	//현재 체력
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float CurrentHP = 100.0f;
 	
 private:
 	float TargetCameraDistance;
@@ -68,7 +75,7 @@ protected:
 	virtual void Tick( float DeltaTime ) override;
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 	// Input Handlers
 	UFUNCTION()
 	void Move(const FInputActionValue& Value);
@@ -95,4 +102,6 @@ protected:
 	UFUNCTION()
 	void OnToggleBuildMode(const FInputActionValue& Value);
 
+	UFUNCTION()
+	void OnDeath();
 	};

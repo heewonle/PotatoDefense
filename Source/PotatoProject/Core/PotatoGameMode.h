@@ -7,6 +7,8 @@
 class UPotatoDayNightCycle;
 class UPotatoResourceManager;
 class APotatoPlayerCharacter;
+class APotatoMonsterSpawner;
+class APotatoAnimalController;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDayPhase);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnNightPhase);
@@ -39,16 +41,16 @@ private:
 public:
     // -- Day-night cycle BP 설정용입니다. --
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float DayDuration = 10.0f;// 300.0f;
+    float DayDuration = 300.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float EveningDuration = 10.0f;// 30.0f;
+    float EveningDuration = 30.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float NightDuration = 10.0f;//300.0f;
+    float NightDuration = 300.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float DawnDuration = 10.0f;// 30.0f;
+    float DawnDuration = 30.0f;
 
 public:
     UPROPERTY(BlueprintAssignable)
@@ -97,6 +99,16 @@ private:
     int32 InitialLivestock = 50;
 
     APotatoPlayerCharacter* PlayerCharacter;
+
+    UPROPERTY(EditAnywhere, Category = "Spawner")
+    TSubclassOf<APotatoMonsterSpawner> MonsterSpawnerClass;
+
+    APotatoMonsterSpawner* MonsterSpawner;
+
+    UPROPERTY(EditAnywhere, Category = "Spawner")
+    TSubclassOf<APotatoAnimalController> AnimalControllerClass;
+
+    APotatoAnimalController* AnimalController;
 
 #pragma endregion ResourceSystem
 };

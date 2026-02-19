@@ -6,6 +6,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Building/BuildingSystemComponent.h"
 #include "Combat/PotatoWeaponComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "../Core/PotatoGameMode.h" 
 
 
 APotatoPlayerCharacter::APotatoPlayerCharacter()
@@ -62,6 +64,11 @@ void APotatoPlayerCharacter::Tick(float DeltaTime)
 		);
 
 		CameraBoom->TargetArmLength = NewDistance;
+	}
+
+	if (CurrentHP <= 0)
+	{
+		OnDeath();
 	}
 }
 
@@ -314,4 +321,34 @@ void APotatoPlayerCharacter::SetIsBuildingMode(bool BuildingMode)
 			BuildingComponent->ToggleBuildMode();
 		}
 	}
+}
+
+
+void APotatoPlayerCharacter::OnDeath()
+{
+	APotatoGameMode* GameMode = Cast<APotatoGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	if (GameMode)
+	{
+		GameMode->EndGame();
+	}
+	//캐릭터 죽는 애니메이션 실행필요
+}
+
+float APotatoPlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	if (ActualDamage > 0.0f)
+	{
+		CurrentHP = FMath::Clamp(CurrentHP - ActualDamage, 0.0f, MaxHP);
+
+		///UE_LOG(LogTemp, Warning, TEXT("Remaining Health: %f"), CurrentHealth);
+
+		if (CurrentHP <= 0.0f)
+		{
+			OnDeath();
+		}
+	}
+
+	return ActualDamage;
 }

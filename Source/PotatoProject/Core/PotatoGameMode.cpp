@@ -4,6 +4,8 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "../Player/PotatoPlayerCharacter.h" 
+#include "../Monster/PotatoMonsterSpawner.h" 
+#include "../Animal/PotatoAnimalController.h"
 
 APotatoGameMode::APotatoGameMode() 
 {
@@ -51,14 +53,35 @@ void APotatoGameMode::StartGame()
 
     ResourceManager->StartSystem(InitialWood, InitialStone, InitialCrop, InitialLivestock);
     PlayerCharacter = Cast<APotatoPlayerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+    
+    /*if (MonsterSpawnerClass)
+    {
+        FActorSpawnParameters SpawnParams;
+        MonsterSpawner = GetWorld()->SpawnActor<APotatoMonsterSpawner>(
+            MonsterSpawnerClass,
+            FVector(-40.f, -4340.f, 690.f),
+            FRotator::ZeroRotator,
+            SpawnParams
+        );
+    }*/
 }
 
 void APotatoGameMode::StartDayPhase()
 {
+   
     // 게임 로직 관련 넣고싶은 기능들을
     OnDayPhase.Broadcast();
     if (PlayerCharacter) {
         PlayerCharacter->SetIsBuildingMode(true);
+    }
+    if (MonsterSpawner)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("Stop Wave!")));
+        MonsterSpawner->StopWave();
+    }
+    if (AnimalController)
+    {
+        AnimalController->SetIsAnimalPosses(true);
     }
 }
 
@@ -76,6 +99,20 @@ void APotatoGameMode::StartNightPhase()
     {
         PlayerCharacter->SetIsBuildingMode(false);
     }
+    if (MonsterSpawner)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("start Wave!")));
+        FString WaveString = FString::FromInt(CurrentDay) + TEXT("-1");
+
+        // 2. FName으로 변환 (필요한 경우)
+        FName s = FName(*WaveString);
+       MonsterSpawner->StartWave(s);
+        GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("start Wave: %s"), *s.ToString()));
+    }
+    if (AnimalController)
+    {
+        AnimalController->SetIsAnimalPosses(false);
+    }
 }
 
 void APotatoGameMode::StartResultPhase()
@@ -89,7 +126,7 @@ void APotatoGameMode::StartResultPhase()
 
 void APotatoGameMode::EndGame()
 {
-
+    GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("게임 끝!")));
 }
 
 void  APotatoGameMode::CheckVictoryCondition()
