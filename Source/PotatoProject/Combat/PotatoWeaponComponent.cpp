@@ -3,6 +3,7 @@
 #include "PotatoWeaponData.h"
 #include "PotatoProjectile.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMaterialLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -84,14 +85,9 @@ void UPotatoWeaponComponent::EquipWeapon(int32 SlotIndex)
 	{
 		return;
 	}
-	
+
 	// 무기를 교체하는 경우 재장전 취소
-	if (GetWorld()->GetTimerManager().IsTimerActive(ReloadTimerHandle))
-	{
-		GetWorld()->GetTimerManager().ClearTimer(ReloadTimerHandle);
-		CurrentState = EWeaponState::Idle;
-		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Orange, TEXT("무기 교체로 인해 장전이 취소되었습니다!"));
-	}
+	CancelReload();
 
 	// 이미 동일한 무기를 들고 있다면 아무것도 하지 않음
 	if (CurrentWeaponData == NewData)
@@ -136,6 +132,11 @@ void UPotatoWeaponComponent::EquipWeapon(int32 SlotIndex)
 bool UPotatoWeaponComponent::CanFire() const
 {
 	return true;
+}
+
+bool UPotatoWeaponComponent::IsReloading() const
+{
+	return CurrentState == EWeaponState::Reloading;
 }
 
 void UPotatoWeaponComponent::Fire()
@@ -200,21 +201,21 @@ void UPotatoWeaponComponent::StartReload()
 	{
 		return;
 	}
-	
+
 	if (CurrentState != EWeaponState::Idle)
 	{
 		return;
 	}
-	
+
 	FWeaponAmmoState& State = AmmoMap[CurrentWeaponData];
-	
+
 	// 이미 가득 차 있는지 확인
 	if (State.CurrentAmmo >= CurrentWeaponData->MaxAmmoSize)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Yellow, TEXT("탄창이 꽉 찼습니다!"));
 		return;
 	}
-	
+
 	// 예비 탄약이 있는지 확인
 	if (State.ReserveAmmo <= 0)
 	{
@@ -223,11 +224,18 @@ void UPotatoWeaponComponent::StartReload()
 	}
 	
 	CurrentState = EWeaponState::Reloading;
-	
-	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, TEXT("Reloading..."));
+	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, TEXT("Reloading...(이동 속도 감소)"));
+
+	// 이동 속도 처리
+	ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
+	if (OwnerCharacter && OwnerCharacter->GetCharacterMovement())
+	{
+		CachedWalkSpeed = OwnerCharacter->GetCharacterMovement()->MaxWalkSpeed;
+		OwnerCharacter->GetCharacterMovement()->MaxWalkSpeed = CachedWalkSpeed * ReloadWalkSpeedScale;
+	}
 	
 	float Duration = CurrentWeaponData->ReloadTime;
-	
+
 	GetWorld()->GetTimerManager().SetTimer(
 		ReloadTimerHandle,
 		this,
@@ -244,20 +252,44 @@ void UPotatoWeaponComponent::FinishReload()
 		CurrentState = EWeaponState::Idle;
 		return;
 	}
-	
+
 	FWeaponAmmoState& State = AmmoMap[CurrentWeaponData];
-	
+
 	int32 AmmoNeeded = CurrentWeaponData->MaxAmmoSize - State.CurrentAmmo;
 	int32 AmmoToTransfer = FMath::Min(AmmoNeeded, State.ReserveAmmo);
-	
+
 	State.CurrentAmmo += AmmoToTransfer;
 	State.ReserveAmmo -= AmmoToTransfer;
+
+	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Green,
+	                                 FString::Printf(
+		                                 TEXT("장전 완료! %d/%d (예비 탄약: %d)"), State.CurrentAmmo,
+		                                 CurrentWeaponData->MaxAmmoSize, State.ReserveAmmo));
+
+	CancelReload();
+}
+
+void UPotatoWeaponComponent::CancelReload()
+{
+	// 1. 타이머 클리어
+	if (GetWorld()->GetTimerManager().IsTimerActive(ReloadTimerHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(ReloadTimerHandle);
+	}
 	
+	// 2. 이동 속도 복원
+	if (CurrentState == EWeaponState::Reloading)
+	{
+		ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
+		if (OwnerCharacter && OwnerCharacter->GetCharacterMovement())
+		{
+			OwnerCharacter->GetCharacterMovement()->MaxWalkSpeed = CachedWalkSpeed;
+		}
+	}
+	
+	// 3. 상태 재설정
 	CurrentState = EWeaponState::Idle;
-	
-	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Green, FString::Printf(TEXT("장전 완료! %d/%d (예비 탄약: %d)"), State.CurrentAmmo, CurrentWeaponData->MaxAmmoSize, State.ReserveAmmo));
-	
-	GetWorld()->GetTimerManager().ClearTimer(ReloadTimerHandle);
+	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Orange, TEXT("장전이 취소되었습니다!"));
 }
 
 FVector UPotatoWeaponComponent::GetMuzzleLocation() const
@@ -311,6 +343,11 @@ FVector UPotatoWeaponComponent::GetCrosshairTargetLocation() const
 	}
 
 	return TraceEnd;
+}
+
+void UPotatoWeaponComponent::UpdateCachedWalkSpeed(float NewSpeed)
+{
+	CachedWalkSpeed = NewSpeed;
 }
 
 void UPotatoWeaponComponent::FireProjectile(const FVector& TargetLocation)
@@ -383,8 +420,7 @@ void UPotatoWeaponComponent::FireHitscan(const FVector& TargetLocation)
 		{
 			AActor* HitActor = HitResult.GetActor();
 
-			// TODO: 태그로 몬스터 확인
-			if (HitActor && HitActor->CanBeDamaged())
+			if (HitActor && HitActor->ActorHasTag(TEXT("Monster")))
 			{
 				UGameplayStatics::ApplyDamage(HitActor, CurrentWeaponData->BaseDamage, PlayerController,
 				                              CurrentWeaponActor, UDamageType::StaticClass());

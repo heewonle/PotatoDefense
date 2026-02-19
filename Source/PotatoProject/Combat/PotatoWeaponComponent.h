@@ -57,7 +57,7 @@ public:
     TObjectPtr<APotatoWeapon> CurrentWeaponActor;
 
     // =================================================================
-    // Combat Interface (Public)
+    // Combat Interface & Settings (Public)
     // =================================================================
 public:
     UFUNCTION(BlueprintCallable, Category = "Combat")
@@ -68,9 +68,17 @@ public:
     
     UFUNCTION(BlueprintPure, Category = "Combat")
     bool CanFire() const;
+    
+    UFUNCTION(BlueprintPure, Category = "Combat")
+    bool IsReloading() const;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
     EWeaponState CurrentState = EWeaponState::Idle;
+    
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat")
+    float ReloadWalkSpeedScale = 0.7;
+    
+    void UpdateCachedWalkSpeed(float NewSpeed);
 
     // =================================================================
     // Ammo System
@@ -88,6 +96,7 @@ private:
     // =================================================================
 protected:
     void FinishReload();
+    void CancelReload();
 
 private:
     void SpawnWeapon(TSubclassOf<APotatoWeapon> NewClass);
@@ -106,4 +115,6 @@ private:
 
 private:
     FTimerHandle ReloadTimerHandle;
+    
+    float CachedWalkSpeed = 0.0f;
 };
