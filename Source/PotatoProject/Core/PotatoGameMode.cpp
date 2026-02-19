@@ -2,10 +2,12 @@
 #include "PotatoDayNightCycle.h"
 #include "PotatoResourceManager.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "Kismet/GameplayStatics.h"
+#include "../Player/PotatoPlayerCharacter.h" 
 
 APotatoGameMode::APotatoGameMode() 
 {
-
+    
 }
 
 void APotatoGameMode::BeginPlay()
@@ -48,12 +50,16 @@ void APotatoGameMode::StartGame()
     if (!ResourceManager) return;
 
     ResourceManager->StartSystem(InitialWood, InitialStone, InitialCrop, InitialLivestock);
+    PlayerCharacter = Cast<APotatoPlayerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
 }
 
 void APotatoGameMode::StartDayPhase()
 {
     // 게임 로직 관련 넣고싶은 기능들을
     OnDayPhase.Broadcast();
+    if (PlayerCharacter) {
+        PlayerCharacter->SetIsBuildingMode(true);
+    }
 }
 
 void APotatoGameMode::StartWarningPhase()
@@ -66,6 +72,10 @@ void APotatoGameMode::StartNightPhase()
 {
     // 취향껏 추가하십쇼
     OnNightPhase.Broadcast();
+    if (PlayerCharacter)
+    {
+        PlayerCharacter->SetIsBuildingMode(false);
+    }
 }
 
 void APotatoGameMode::StartResultPhase()

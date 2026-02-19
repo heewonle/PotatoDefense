@@ -7,6 +7,7 @@
 #include "Building/BuildingSystemComponent.h"
 #include "Combat/PotatoWeaponComponent.h"
 
+
 APotatoPlayerCharacter::APotatoPlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -36,6 +37,9 @@ APotatoPlayerCharacter::APotatoPlayerCharacter()
 
 	// Create weapon component
 	WeaponComponent = CreateDefaultSubobject<UPotatoWeaponComponent>(TEXT("WeaponComponent"));
+
+	//빌드모드 가능여부
+	IsBuildingMode = true;
 }
 
 void APotatoPlayerCharacter::BeginPlay()
@@ -293,8 +297,21 @@ void APotatoPlayerCharacter::WeaponChange(const FInputActionValue& Value)
 
 void APotatoPlayerCharacter::OnToggleBuildMode(const FInputActionValue& Value)
 {
-	if (BuildingComponent)
+	if (BuildingComponent && IsBuildingMode)
 	{
 		BuildingComponent->ToggleBuildMode();
+	}
+}
+
+void APotatoPlayerCharacter::SetIsBuildingMode(bool BuildingMode)
+{
+	IsBuildingMode = BuildingMode;
+
+	//빌드모드 켜져있으면 끄기
+	if (BuildingComponent && !IsBuildingMode)
+	{
+		if (BuildingComponent->bIsBuildMode) {
+			BuildingComponent->ToggleBuildMode();
+		}
 	}
 }

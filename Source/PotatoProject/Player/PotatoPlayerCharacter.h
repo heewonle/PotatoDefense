@@ -57,10 +57,12 @@ protected:
 private:
 	float TargetCameraDistance;
 	
+	bool IsBuildingMode;
 	// Functions
 public:
 	APotatoPlayerCharacter();
 	
+	void SetIsBuildingMode(bool BuildingMode);
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick( float DeltaTime ) override;
@@ -92,4 +94,5 @@ protected:
 	
 	UFUNCTION()
 	void OnToggleBuildMode(const FInputActionValue& Value);
+
 	};
