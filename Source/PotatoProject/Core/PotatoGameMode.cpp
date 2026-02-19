@@ -1,4 +1,4 @@
-#include "PotatoGameMode.h"
+﻿#include "PotatoGameMode.h"
 #include "PotatoDayNightCycle.h"
 #include "PotatoResourceManager.h"
 #include "Subsystems/WorldSubsystem.h"
@@ -66,6 +66,7 @@ void APotatoGameMode::StartNightPhase()
 {
     // 취향껏 추가하십쇼
     OnNightPhase.Broadcast();
+    //이벤트 noify해서 각자 컴포넌트에서 처리하게끔
 }
 
 void APotatoGameMode::StartResultPhase()
