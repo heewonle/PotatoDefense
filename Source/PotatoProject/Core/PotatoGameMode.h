@@ -112,7 +112,7 @@ private:
 
     APotatoAnimalController* AnimalController;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
+    UPROPERTY(EditAnywhere, Category = "Spawner")
     TObjectPtr<AActor> WarehouseActor;
 #pragma endregion ResourceSystem
 };
