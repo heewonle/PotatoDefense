@@ -1,9 +1,12 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Animal/PotatoBTTask_PickRandomLocation.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Components/BoxComponent.h"
+#include "NavigationSystem.h" 
+#include "NavFilters/NavigationQueryFilter.h"
+#include "AIController.h"
 #include "Kismet/KismetMathLibrary.h"
 
 UPotatoBTTask_PickRandomLocation::UPotatoBTTask_PickRandomLocation()
@@ -41,6 +44,31 @@ EBTNodeResult::Type UPotatoBTTask_PickRandomLocation::ExecuteTask(UBehaviorTreeC
     FVector Origin = TargetArea->GetComponentLocation();
     FVector BoxExtent = TargetArea->GetScaledBoxExtent();
     FVector RandomPoint = UKismetMathLibrary::RandomPointInBoundingBox(Origin, BoxExtent);
+
+    UWorld* World = OwnerComp.GetWorld();
+    UNavigationSystemV1* NavSys = World ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(World) : nullptr;
+
+    if (NavSys)
+    {
+        FNavLocation Projected;
+        const FVector Extent(200.f, 200.f, 200.f);
+
+        // NavData 가져오기 (기본 네비 데이터)
+        const ANavigationData* NavData = NavSys->GetDefaultNavDataInstance(FNavigationSystem::DontCreate);
+
+        // FilterClass -> 실제 QueryFilter로 변환
+        FSharedConstNavQueryFilter QueryFilter;
+        if (NavData && NavFilterClass)
+        {
+            QueryFilter = UNavigationQueryFilter::GetQueryFilter(*NavData, OwnerComp.GetAIOwner(), NavFilterClass);
+        }
+
+        if (NavData && NavSys->ProjectPointToNavigation(RandomPoint, Projected, Extent, NavData, QueryFilter))
+        {
+            BlackboardComp->SetValueAsVector(TargetLocationKey.SelectedKeyName, Projected.Location);
+            return EBTNodeResult::Succeeded;
+        }
+    }
 
     BlackboardComp->SetValueAsVector(TargetLocationKey.SelectedKeyName, RandomPoint);
 

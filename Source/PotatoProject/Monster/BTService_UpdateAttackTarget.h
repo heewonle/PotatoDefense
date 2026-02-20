@@ -14,6 +14,7 @@ struct FUpdateAttackTargetMemory
 	float LastDistToMoveTarget2D = -1.f;
 	float NoProgressTime = 0.f;
 	bool  bBlocked = false;
+	TWeakObjectPtr<AActor> LastTarget;
 };
 
 UCLASS()

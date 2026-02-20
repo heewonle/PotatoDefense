@@ -143,4 +143,29 @@ public:
 	UPotatoMonsterAnimSet* GetAnimSet() const { return AnimSet; }
 
 	void SetAnimSet(UPotatoMonsterAnimSet* InSet);
+
+
+	// ===== HitReact Tuning =====
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Anim|HitReact", meta = (AllowPrivateAccess = "true"))
+	float HitReactCooldown = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Anim|HitReact", meta = (AllowPrivateAccess = "true"))
+	float HitReactMaxStunTime = 0.6f; // 너무 길어지지 않게 클램프용
+
+	float LastHitReactTime = -1000.f;
+
+	FTimerHandle HitReactResumeTH;
+
+private:
+		// -------------------------
+		// Hit React Helpers
+		// -------------------------
+		void TryPlayHitReact();
+		void ResumeMovementAfterHitReact();
+
+		// -------------------------
+		// AI Stop Helper
+		// -------------------------
+		void StopAIForDead();
+
 };
