@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
@@ -9,6 +9,7 @@ class UPotatoResourceManager;
 class APotatoPlayerCharacter;
 class APotatoMonsterSpawner;
 class APotatoAnimalController;
+class APotatoNPC;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDayPhase);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnNightPhase);
@@ -24,13 +25,15 @@ public:
     APotatoGameMode();
 
     void StartGame();
-    void EndGame();
+    void EndGame(bool IsGameClear);
     void CheckVictoryCondition();
 
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
+    
+    UFUNCTION()
+    void OnHouseDestroyed(AActor* DestroyedActor);
 #pragma region DayNightSystem
 private:
     UPROPERTY()
@@ -41,16 +44,16 @@ private:
 public:
     // -- Day-night cycle BP 설정용입니다. --
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float DayDuration = 10.0f;
+    float DayDuration = 3.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float EveningDuration = 30.0f;
+    float EveningDuration = 3.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float NightDuration = 300.0f;
+    float NightDuration = 3.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float DawnDuration = 30.0f;
+    float DawnDuration = 3.0f;
 
 public:
     UPROPERTY(BlueprintAssignable)
@@ -110,5 +113,9 @@ private:
 
     APotatoAnimalController* AnimalController;
 
+    UPROPERTY(EditAnywhere, Category = "Spawner")
+    TObjectPtr<AActor> WarehouseActor;
+    UPROPERTY(EditAnywhere, Category = "Spawner")
+    TArray<TObjectPtr<APotatoNPC>> NPCs;
 #pragma endregion ResourceSystem
 };
