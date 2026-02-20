@@ -3,6 +3,7 @@
 #include "PotatoResourceManager.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "Kismet/GameplayStatics.h"
+#include "EngineUtils.h" 
 #include "../Player/PotatoPlayerCharacter.h" 
 #include "../Monster/PotatoMonsterSpawner.h" 
 #include "../Animal/PotatoAnimalController.h"
@@ -54,16 +55,14 @@ void APotatoGameMode::StartGame()
     ResourceManager->StartSystem(InitialWood, InitialStone, InitialCrop, InitialLivestock);
     PlayerCharacter = Cast<APotatoPlayerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
     
-    /*if (MonsterSpawnerClass)
+    if (!MonsterSpawner)
     {
-        FActorSpawnParameters SpawnParams;
-        MonsterSpawner = GetWorld()->SpawnActor<APotatoMonsterSpawner>(
-            MonsterSpawnerClass,
-            FVector(-40.f, -4340.f, 690.f),
-            FRotator::ZeroRotator,
-            SpawnParams
-        );
-    }*/
+        for (TActorIterator<APotatoMonsterSpawner> It(GetWorld()); It; ++It)
+        {
+            MonsterSpawner = *It;
+            break;
+        }
+    }
 }
 
 void APotatoGameMode::StartDayPhase()
@@ -77,7 +76,7 @@ void APotatoGameMode::StartDayPhase()
     if (MonsterSpawner)
     {
         GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("Stop Wave!")));
-        MonsterSpawner->StopWave();
+        MonsterSpawner->NotifyTimeExpired();
     }
     if (AnimalController)
     {
@@ -101,6 +100,9 @@ void APotatoGameMode::StartNightPhase()
     }
     if (MonsterSpawner)
     {
+        UE_LOG(LogTemp, Warning, TEXT("[GM] Spawner=%s Class=%s"),
+            *GetNameSafe(MonsterSpawner),
+            *GetNameSafe(MonsterSpawner ? MonsterSpawner->GetClass() : nullptr));
         GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("start Wave!")));
         FString WaveString = FString::FromInt(CurrentDay) + TEXT("-1");
 
@@ -126,6 +128,11 @@ void APotatoGameMode::StartResultPhase()
 
 void APotatoGameMode::EndGame()
 {
+    if (MonsterSpawner)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("Stop Wave!")));
+        MonsterSpawner->NotifyGameOver();
+    }
     GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("게임 끝!")));
 }
 

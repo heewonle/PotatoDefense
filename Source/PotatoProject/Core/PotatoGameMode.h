@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
@@ -41,7 +41,7 @@ private:
 public:
     // -- Day-night cycle BP 설정용입니다. --
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
-    float DayDuration = 300.0f;
+    float DayDuration = 10.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "DayNight|Duration", meta = (ClampMin = "1.0", UIMin = "1.0"))
     float EveningDuration = 30.0f;
