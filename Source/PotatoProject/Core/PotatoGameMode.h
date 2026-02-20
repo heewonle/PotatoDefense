@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
@@ -30,7 +30,9 @@ public:
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
+    
+    UFUNCTION()
+    void OnHouseDestroyed(AActor* DestroyedActor);
 #pragma region DayNightSystem
 private:
     UPROPERTY()
@@ -110,5 +112,7 @@ private:
 
     APotatoAnimalController* AnimalController;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
+    TObjectPtr<AActor> WarehouseActor;
 #pragma endregion ResourceSystem
 };

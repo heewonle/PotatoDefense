@@ -1,4 +1,4 @@
-﻿#include "PotatoGameMode.h"
+#include "PotatoGameMode.h"
 #include "PotatoDayNightCycle.h"
 #include "PotatoResourceManager.h"
 #include "Subsystems/WorldSubsystem.h"
@@ -54,7 +54,7 @@ void APotatoGameMode::StartGame()
 
     ResourceManager->StartSystem(InitialWood, InitialStone, InitialCrop, InitialLivestock);
     PlayerCharacter = Cast<APotatoPlayerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
-    
+
     if (!MonsterSpawner)
     {
         for (TActorIterator<APotatoMonsterSpawner> It(GetWorld()); It; ++It)
@@ -62,6 +62,20 @@ void APotatoGameMode::StartGame()
             MonsterSpawner = *It;
             break;
         }
+    }
+    
+    UClass* WarehouseClass = StaticLoadClass(AActor::StaticClass(), nullptr, TEXT("/Game/LHW/BluePrints/BP_WareHouse.BP_WareHouse"));
+    if (!WarehouseActor)
+    {
+        for (TActorIterator<AActor> It(GetWorld(), WarehouseClass); It; ++It)
+        {
+            WarehouseActor = *It;
+            if (WarehouseActor)break;
+        }
+    }
+    if (WarehouseActor)
+    {
+        WarehouseActor->OnDestroyed.AddDynamic(this, &APotatoGameMode::OnHouseDestroyed);
     }
 }
 
@@ -142,4 +156,9 @@ void  APotatoGameMode::CheckVictoryCondition()
     {
         EndGame();
     }
+}
+
+void APotatoGameMode::OnHouseDestroyed(AActor* DestroyedActor)
+{
+    EndGame();
 }
