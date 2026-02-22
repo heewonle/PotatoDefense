@@ -166,6 +166,24 @@ void UPotatoWeaponComponent::EquipWeapon(int32 SlotIndex)
 
 bool UPotatoWeaponComponent::CanFire() const
 {
+	// 유효성 검사
+	if (!CurrentWeaponData || !CurrentWeaponActor)
+	{
+		return false;
+	}
+
+	// 상태 확인
+	if (CurrentState != EWeaponState::Idle)
+	{
+		return false;
+	}
+
+	// 발사 속도 쿨다운: 타임스탬프 확인
+	float CurrentTime = GetWorld()->GetTimeSeconds();
+	if (CurrentTime - LastFireTime < CurrentWeaponData->FireRate)
+	{
+		return false;
+	}
 	return true;
 }
 
@@ -176,18 +194,11 @@ bool UPotatoWeaponComponent::IsReloading() const
 
 void UPotatoWeaponComponent::Fire()
 {
-	// 유효성 검사
-	if (!CurrentWeaponData || !CurrentWeaponActor)
+	if (!CanFire())
 	{
 		return;
 	}
-
-	// 상태 확인
-	if (CurrentState != EWeaponState::Idle)
-	{
-		return;
-	}
-
+	
 	// =================================================================
 	// 탄약 로직
 	// =================================================================
@@ -206,6 +217,7 @@ void UPotatoWeaponComponent::Fire()
 	}
 
 	State.CurrentAmmo--;
+	LastFireTime = GetWorld()->GetTimeSeconds(); // 발사 직후 타임스탬프 업데이트
 	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Cyan,
 	                                 FString::Printf(
 		                                 TEXT("Bang! %d/%d"), State.CurrentAmmo,

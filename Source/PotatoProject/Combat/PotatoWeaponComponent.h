@@ -124,6 +124,9 @@ private:
 private:
     FTimerHandle ReloadTimerHandle;
     
+    /** 마지막 발사 시간 추적 */
+    float LastFireTime = 0.0f;
+    
     float CachedWalkSpeed = 0.0f;
     
     /** ControlRotation Recoil: 남은 Pitch 반동량 */
