@@ -520,6 +520,35 @@ void UPotatoWeaponComponent::SpawnHitscanVisual(const FHitResult& HitResult, con
 		VisualActor->AttachToComponent(HitResult.GetComponent(), FAttachmentTransformRules::KeepWorldTransform);
 		VisualActor->SetLifeSpan(10.0f);
 	}
+	
+	if (!CurrentWeaponData)
+	{
+		return;
+	}
+	
+	if (CurrentWeaponData->ImpactEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			CurrentWeaponData->ImpactEffect,
+			HitResult.Location,
+			FRotator::ZeroRotator,
+			CurrentWeaponData->ImpactEffectScale,
+			true,
+			true);
+	}
+	
+	if (CurrentWeaponData->ImpactSound)
+	{
+		float RandomPitch = 1.0f;
+		if (CurrentWeaponData->FireSoundPitchRandomness > 0.0f)
+		{
+			float MinPitch = 1.0f - CurrentWeaponData->FireSoundPitchRandomness;
+			float MaxPitch = 1.0f + CurrentWeaponData->FireSoundPitchRandomness;
+			RandomPitch = FMath::RandRange(MinPitch, MaxPitch);
+		}
+		UGameplayStatics::PlaySoundAtLocation(this, CurrentWeaponData->ImpactSound, HitResult.Location, RandomPitch);
+	}
 }
 
 void UPotatoWeaponComponent::PlayFireEffects()

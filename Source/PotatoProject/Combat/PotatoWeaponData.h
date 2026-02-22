@@ -79,6 +79,16 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
 	TSubclassOf<UCameraShakeBase> FireCameraShake;
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
+	UNiagaraSystem* ImpactEffect;
+
+	/** 나이아가라 파티클 크기 스케일링: 2.0 = 두 배 커짐 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
+	FVector ImpactEffectScale = FVector(1.0f, 1.0f, 1.0f);
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
+	USoundBase* ImpactSound;
+	
 	// =================================================================
 	// Game Feel
 	// =================================================================
