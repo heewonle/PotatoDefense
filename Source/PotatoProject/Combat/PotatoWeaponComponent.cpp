@@ -11,7 +11,7 @@
 
 UPotatoWeaponComponent::UPotatoWeaponComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 }
 
 void UPotatoWeaponComponent::BeginPlay()
@@ -57,6 +57,29 @@ void UPotatoWeaponComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		CurrentWeaponActor->Destroy();
 	}
 	Super::EndPlay(EndPlayReason);
+}
+
+void UPotatoWeaponComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+	// ControlRotation Recoil
+	if (!FMath::IsNearlyZero(TargetRecoilPitch) || !FMath::IsNearlyZero(TargetRecoilYaw))
+	{
+		ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
+		if (OwnerCharacter && OwnerCharacter->GetController())
+		{
+			float PitchStep = FMath::FInterpTo(0.0f, TargetRecoilPitch, DeltaTime, CurrentWeaponData->RecoilSpeed);
+			float YawStep = FMath::FInterpTo(0.0f, TargetRecoilYaw, DeltaTime, CurrentWeaponData->RecoilSpeed);
+			
+			OwnerCharacter->AddControllerPitchInput(-PitchStep);
+			OwnerCharacter->AddControllerYawInput(-YawStep);
+			
+			TargetRecoilPitch -= PitchStep;
+			TargetRecoilYaw -= YawStep;
+		}
+	}
 }
 
 void UPotatoWeaponComponent::SpawnWeapon(TSubclassOf<APotatoWeapon> NewClass)
@@ -488,7 +511,8 @@ void UPotatoWeaponComponent::PlayFireEffects()
 			float MaxPitch = 1.0f + CurrentWeaponData->FireSoundPitchRandomness;
 			RandomPitch = FMath::RandRange(MinPitch, MaxPitch);
 		}
-		UGameplayStatics::PlaySoundAtLocation(this, CurrentWeaponData->FireSound, GetMuzzleLocation(), 1.0f, RandomPitch);
+		UGameplayStatics::PlaySoundAtLocation(this, CurrentWeaponData->FireSound, GetMuzzleLocation(), 1.0f,
+		                                      RandomPitch);
 	}
 
 	// 2. 총구 이펙트 재생
@@ -523,4 +547,17 @@ void UPotatoWeaponComponent::PlayFireEffects()
 	{
 		PlayerController->ClientStartCameraShake(CurrentWeaponData->FireCameraShake);
 	}
+
+	
+	if (CurrentWeaponData && CurrentWeaponActor)
+	{
+		// 4. ControlRotation Recoil: 반동 누적, 연사 시 계속 위로 올라가도록
+		TargetRecoilPitch += CurrentWeaponData->RecoilPitch;
+		TargetRecoilYaw += FMath::RandRange(-CurrentWeaponData->RecoilYaw, CurrentWeaponData->RecoilYaw);
+		
+		// 5. Procedural Weapon Kick (무기 모델 반동)
+		CurrentWeaponActor->PlayKick(CurrentWeaponData->WeaponKickOffset, CurrentWeaponData->WeaponKickRotation,
+								 CurrentWeaponData->WeaponKickRecoverySpeed);
+	}
+	
 }

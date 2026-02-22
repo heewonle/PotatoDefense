@@ -34,6 +34,7 @@ public:
 protected:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
     // =================================================================
     // Weapon Inventory & Equipment
@@ -124,4 +125,10 @@ private:
     FTimerHandle ReloadTimerHandle;
     
     float CachedWalkSpeed = 0.0f;
+    
+    /** ControlRotation Recoil: 남은 Pitch 반동량 */
+    float TargetRecoilPitch = 0.0f;
+    
+    /** ControlRotation Recoil: 남은 Yaw 반동량 */
+    float TargetRecoilYaw = 0.0f;
 };

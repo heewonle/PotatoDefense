@@ -73,9 +73,29 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
 	TSubclassOf<UCameraShakeBase> FireCameraShake;
 	
-	/** TODO: 수직 반동: 카메라가 위로 튀어오르는 정도 */
+	/** 수직 반동: 카메라가 위로 튀어오르는 정도 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float RecoilPitch = 0.5f;
 	
-	/** TODO: 수평 반동*/
+	/** 수평 반동 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float RecoilYaw = 0.1f;
+	
+	/** 반동 속도: 높을수록 빠름 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float RecoilSpeed = 40.0;
+	
+	/** 발사 시 무기 모델이 뒤로 밀리는 정도 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	FVector WeaponKickOffset = FVector(-15.0f, 0.0f, 0.0f);
+	
+	/** 발사 시 무기 모델이 위로 들리는(Pitch 회전) 정도 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	FRotator WeaponKickRotation = FRotator(10.0f, 0.0f, 0.0f);
+	
+	/** 발사 시 무기 모델이 원래 위치로 돌아오는 속도 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float WeaponKickRecoverySpeed = 10.0f;
 	
 	// =================================================================
 	// 투사체 설정: FireType이 Projectile일 경우 사용됨
