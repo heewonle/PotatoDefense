@@ -8,6 +8,7 @@
 #include "Components/ProgressBar.h"
 #include "Components/Slider.h"
 #include "Components/Button.h"
+#include "Components/Image.h"
 
 
 
@@ -196,16 +197,16 @@ void UAmmoPopupWidget::RefreshAmmoDisplay()
 
 void UAmmoPopupWidget::OnResourceChanged(EResourceType Type, int32 NewValue)
 {
+    //GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("Type!")));
 
     switch (Type)
     {
         case EResourceType::Wood:      
-            if (WoodAmount)      
-                WoodAmount->SetText(FText::AsNumber(NewValue));      
+            if (WoodAmount) WoodAmount->SetText(FText::AsNumber(NewValue));   
+            //if(Ammo)
             break;
         case EResourceType::Stone:     
-            if (StoneAmount)     
-                StoneAmount->SetText(FText::AsNumber(NewValue));     
+            if (StoneAmount) StoneAmount->SetText(FText::AsNumber(NewValue));     
             break;
         case EResourceType::Crop:     
             if (CropAmount) 

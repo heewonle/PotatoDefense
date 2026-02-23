@@ -11,6 +11,7 @@ class UTextBlock;
 class UProgressBar;
 class USlider;
 class UButton;
+class UImage;
 class UPotatoWeaponData;
 class UPotatoWeaponComponent;
 class UPotatoResourceManager;
@@ -91,6 +92,10 @@ protected:
     TObjectPtr<USlider> SliderValue;
     UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
     TObjectPtr<UButton> CloseButton;
+    UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
+    TObjectPtr<UImage> AmmoImage;
+    UPROPERTY(EditAnywhere, Category = "UI")
+    TArray<TObjectPtr<UTexture2D>> AmmoTextures; // 바꿀 텍스트를 에디터에서 할당
 
     // 탄약 종류 선택 버튼 핸들러 
     UFUNCTION(BlueprintCallable, Category = "AmmoPopup")
