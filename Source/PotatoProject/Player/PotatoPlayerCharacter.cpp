@@ -390,8 +390,6 @@ void APotatoPlayerCharacter::SetIsBuildingMode(bool BuildingMode)
 
 void APotatoPlayerCharacter::OnAmmoMode(const FInputActionValue& Value)
 {
-	//GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("Ammo!")));
-	//IsAmmoProduct = !IsAmmoProduct;
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
 
 
@@ -406,9 +404,6 @@ void APotatoPlayerCharacter::OnAmmoMode(const FInputActionValue& Value)
 		else {
 			AmmoPopupWidget->SetVisibility(ESlateVisibility::Visible);
 			PlayerController->bShowMouseCursor = true;
-			//FInputModeGameAndUI InputMode;
-			//InputMode.SetWidgetToFocus(AmmoPopupWidget->TakeWidget());
-			//PlayerController->SetInputMode(InputMode);
 		}
 	}
 

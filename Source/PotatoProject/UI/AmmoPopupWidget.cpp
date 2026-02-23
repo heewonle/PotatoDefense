@@ -89,7 +89,6 @@ void UAmmoPopupWidget::OnCarrotButtonClicked()
 
 void UAmmoPopupWidget::OnCloseButtonClicked()
 {
-    //APlayerController* PlayerController = Cast<APlayerController>(GetController());
     APlayerController* PlayerController = Cast<APlayerController>(GetWorld()->GetFirstPlayerController());
     if (PlayerController)
     {
@@ -120,6 +119,14 @@ void UAmmoPopupWidget::OnChargeButtonClicked()
 void UAmmoPopupWidget::OnSliderValueChanged(float Value)
 {
     if (Slider) Slider->SetPercent(Value);
+    int Conval = (int)(Value*1000);
+    int Proval = (int)(Value*3000);
+    FString Constring = FString(TEXT("감자 %d개"), Value);
+    //ConsumeCrop->SetText(FText::FromString(Constring));
+    ConsumeCrop->SetText(FText::Format(FText::FromString(TEXT("감자{0}개")), Conval));
+    //FString Prostring = FString(TEXT("탄약 %d발"), Value);
+    //ProductionAmmo->SetText(FText::FromString(Prostring));
+    ProductionAmmo->SetText(FText::Format(FText::FromString(TEXT("탄약{0}발")), Proval));
     RefreshSelectionPanel();
 }
 
@@ -189,6 +196,7 @@ void UAmmoPopupWidget::RefreshAmmoDisplay()
 
 void UAmmoPopupWidget::OnResourceChanged(EResourceType Type, int32 NewValue)
 {
+
     switch (Type)
     {
         case EResourceType::Wood:      
