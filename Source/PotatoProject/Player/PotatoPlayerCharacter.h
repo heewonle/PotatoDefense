@@ -70,6 +70,10 @@ public:
 	APotatoPlayerCharacter();
 	
 	void SetIsBuildingMode(bool BuildingMode);
+
+	float GetCurrentHP() const { return CurrentHP; }
+	float GetMaxHP() const { return MaxHP; }
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick( float DeltaTime ) override;
