@@ -7,18 +7,23 @@ public class PotatoProject : ModuleRules
 	public PotatoProject(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		
+
 		PublicIncludePaths.AddRange(
-        			new string[] {
-        				"PotatoProject"
-        			}
-        		);
-	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" , "Niagara", "AIModule", "GameplayTasks" });
-		
+			new string[]
+			{
+				"PotatoProject"
+			}
+		);
+
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "Niagara", "AIModule", "GameplayTasks",
+			"UMG", "Slate", "SlateCore"
+		});
+
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
-		
+
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
 

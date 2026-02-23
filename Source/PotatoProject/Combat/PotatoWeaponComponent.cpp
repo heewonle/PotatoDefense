@@ -197,6 +197,11 @@ bool UPotatoWeaponComponent::IsInCombatStance() const
 	return (GetWorld()->GetTimeSeconds() - LastFireTime) < 3.0f;
 }
 
+float UPotatoWeaponComponent::GetLastFireTime() const
+{
+	return LastFireTime;
+}
+
 void UPotatoWeaponComponent::Fire()
 {
 	if (!CanFire())

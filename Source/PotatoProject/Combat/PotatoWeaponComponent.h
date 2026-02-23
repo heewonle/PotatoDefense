@@ -75,6 +75,9 @@ public:
     
     UFUNCTION(BlueprintCallable, Category = "Combat")
     bool IsInCombatStance() const;
+    
+    UFUNCTION(BlueprintPure, Category = "Combat")
+    float GetLastFireTime() const;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
     EWeaponState CurrentState = EWeaponState::Idle;
@@ -83,7 +86,7 @@ public:
     float ReloadWalkSpeedScale = 0.7;
     
     void UpdateCachedWalkSpeed(float NewSpeed);
-
+    
     // =================================================================
     // Ammo System
     // =================================================================
