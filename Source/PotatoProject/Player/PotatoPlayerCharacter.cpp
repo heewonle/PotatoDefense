@@ -359,6 +359,7 @@ void APotatoPlayerCharacter::WeaponChange(const FInputActionValue& Value)
 		
 		if (AmmoPopupWidget && AmmoPopupWidget->IsVisible()) {
 			//1 2 3 4로 탄환충전할 거 선택
+			AmmoPopupWidget->ChangeAmmo(SlotIndex);
 		}
 		else {
 			WeaponComponent->EquipWeapon(SlotIndex);

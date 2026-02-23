@@ -120,14 +120,15 @@ void UAmmoPopupWidget::OnChargeButtonClicked()
 void UAmmoPopupWidget::OnSliderValueChanged(float Value)
 {
     if (Slider) Slider->SetPercent(Value);
-    int Conval = (int)(Value*1000);
-    int Proval = (int)(Value*3000);
-    FString Constring = FString(TEXT("감자 %d개"), Value);
+    int Conval = (int)(Value*100);
+    int Proval = (int)(Value*300);
+    //if(SelectedWeaponData->AmmoCraftingCost)
     //ConsumeCrop->SetText(FText::FromString(Constring));
-    ConsumeCrop->SetText(FText::Format(FText::FromString(TEXT("감자{0}개")), Conval));
-    //FString Prostring = FString(TEXT("탄약 %d발"), Value);
-    //ProductionAmmo->SetText(FText::FromString(Prostring));
+    
+    ConsumeCrop->SetText(FText::Format(FText::FromString(TEXT("감자{0}개")), Conval)); //NowAmmo
     ProductionAmmo->SetText(FText::Format(FText::FromString(TEXT("탄약{0}발")), Proval));
+    //if (ProductionAmmo) ProductionAmmo->SetText(FText::AsNumber(PendingAmmoCount));
+    //if (ConsumeCrop)    ConsumeCrop->SetText(FText::AsNumber(PendingAmmoCount * SelectedWeaponData->AmmoCraftingCost));
     RefreshSelectionPanel();
 }
 
@@ -198,7 +199,6 @@ void UAmmoPopupWidget::RefreshAmmoDisplay()
 void UAmmoPopupWidget::OnResourceChanged(EResourceType Type, int32 NewValue)
 {
     //GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("Type!")));
-
     switch (Type)
     {
         case EResourceType::Wood:      
@@ -206,15 +206,43 @@ void UAmmoPopupWidget::OnResourceChanged(EResourceType Type, int32 NewValue)
             //if(Ammo)
             break;
         case EResourceType::Stone:     
-            if (StoneAmount) StoneAmount->SetText(FText::AsNumber(NewValue));     
+            if (StoneAmount) StoneAmount->SetText(FText::AsNumber(NewValue));  
             break;
         case EResourceType::Crop:     
-            if (CropAmount) 
-                CropAmount->SetText(FText::AsNumber(NewValue));           
+            if (CropAmount) CropAmount->SetText(FText::AsNumber(NewValue));   
             break;
         case EResourceType::Livestock: 
-            if (LivestockAmount) 
-                LivestockAmount->SetText(FText::AsNumber(NewValue)); 
+            if (LivestockAmount) LivestockAmount->SetText(FText::AsNumber(NewValue)); 
             break;
     }
+}
+
+void UAmmoPopupWidget::ChangeAmmo(int index)
+{
+    if (AmmoImage) AmmoImage->SetBrushFromTexture(AmmoTextures[index]);
+    RefreshSelectionPanel();
+    switch (index)
+    {
+    case 1:
+        SelectedWeaponData = PotatoWeaponData;
+        //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
+        //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+1"))));
+        break;
+    case 2:
+        SelectedWeaponData = CornWeaponData;
+        //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
+        //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+1"))));
+        break;
+    case 3:
+        SelectedWeaponData = PumpkinWeaponData;
+        //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
+        //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+3"))));
+        break;
+    case 4:
+        SelectedWeaponData = CarrotWeaponData;
+        //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
+        //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+1"))));
+        break;
+    }
+    
 }
