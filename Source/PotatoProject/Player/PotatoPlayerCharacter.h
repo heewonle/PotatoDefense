@@ -65,11 +65,17 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UUserWidget> AmmoPopupClass;
-
-	// 생성된 위젯을 참조할 변수
+	
+    // 생성된 위젯을 참조할 변수
 	UPROPERTY()
 	UAmmoPopupWidget* AmmoPopupWidget;
 	
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+    TSubclassOf<UUserWidget> PauseMenuClass;
+
+    UPROPERTY()
+    TObjectPtr<UUserWidget> PauseMenuWidget;
+
 private:
 	float TargetCameraDistance;
 	
@@ -118,6 +124,9 @@ protected:
 	UFUNCTION()
 	void OnAmmoMode(const FInputActionValue& Value);
 
+    UFUNCTION()
+    void OnPauseGame(const FInputActionValue& Value);
+
 	UFUNCTION()
 	void OnDeath();
-	};
+};
