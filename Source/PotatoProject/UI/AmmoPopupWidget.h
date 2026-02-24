@@ -29,6 +29,7 @@ public:
     // 탄환 변경
     void ChangeAmmo(int index);
     //bool IsSetActive;
+    void RefreshAll();
 protected:
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;

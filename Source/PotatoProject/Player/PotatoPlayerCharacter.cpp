@@ -329,7 +329,7 @@ void APotatoPlayerCharacter::Reload(const FInputActionValue& Value)
 
 void APotatoPlayerCharacter::WeaponChange(const FInputActionValue& Value)
 {
-	if (Value.Get<bool>() && WeaponComponent)
+	if (Value.Get<bool>() )
 	{
 		APlayerController* PlayerController = Cast<APlayerController>(GetController());
 		if (!PlayerController)
@@ -356,11 +356,11 @@ void APotatoPlayerCharacter::WeaponChange(const FInputActionValue& Value)
 			SlotIndex = 3;
 		}
 		
-		if (AmmoPopupWidget && AmmoPopupWidget->IsVisible()) {
-			//1 2 3 4로 탄환충전할 거 선택
+		if (AmmoPopupWidget ) { //&& AmmoPopupWidget->IsVisible()
+			//0 1 2 3 탄환충전할 거 선택
 			AmmoPopupWidget->ChangeAmmo(SlotIndex);
 		}
-		else {
+		if(WeaponComponent){
 			WeaponComponent->EquipWeapon(SlotIndex);
 		}
 		
@@ -404,6 +404,7 @@ void APotatoPlayerCharacter::OnAmmoMode(const FInputActionValue& Value)
 		else {
 			AmmoPopupWidget->SetVisibility(ESlateVisibility::Visible);
 			PlayerController->bShowMouseCursor = true;
+			AmmoPopupWidget->RefreshAll();
 		}
 	}
 

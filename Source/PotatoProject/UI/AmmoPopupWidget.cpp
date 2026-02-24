@@ -65,6 +65,13 @@ void UAmmoPopupWidget::InitPopup(UPotatoWeaponComponent* InWeaponComp)
     RefreshSelectionPanel();
 }
 
+void UAmmoPopupWidget::RefreshAll()
+{
+    RefreshResourceDisplay();
+    RefreshAmmoDisplay();
+    RefreshSelectionPanel();
+}
+
 // 탄약 선택 버튼 
 
 void UAmmoPopupWidget::OnPotatoButtonClicked()
@@ -245,29 +252,33 @@ void UAmmoPopupWidget::OnResourceChanged(EResourceType Type, int32 NewValue)
 void UAmmoPopupWidget::ChangeAmmo(int index)
 {
     if (AmmoImage) AmmoImage->SetBrushFromTexture(AmmoTextures[index]);
-    RefreshSelectionPanel();
+
     switch (index)
     {
+    case 0:
+        OnPotatoButtonClicked();
+        //SelectedWeaponData = PotatoWeaponData;
+        //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
+        //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+1"))));
+        break;
     case 1:
-        SelectedWeaponData = PotatoWeaponData;
+        OnCornButtonClicked();
+        //SelectedWeaponData = CornWeaponData;
         //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
         //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+1"))));
         break;
     case 2:
-        SelectedWeaponData = CornWeaponData;
-        //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
-        //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+1"))));
-        break;
-    case 3:
-        SelectedWeaponData = PumpkinWeaponData;
+        OnPumpkinButtonClicked();
+        //SelectedWeaponData = PumpkinWeaponData;
         //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
         //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+3"))));
         break;
-    case 4:
+    case 3:
+        OnCarrotButtonClicked();
         SelectedWeaponData = CarrotWeaponData;
         //if (MinusCropAmount) MinusCropAmount->SetText(FText::Format(FText::FromString(TEXT("-1"))));
         //if (PlusAmmoAmount) PlusAmmoAmount->SetText(FText::Format(FText::FromString(TEXT("+1"))));
         break;
     }
-    
+    //RefreshSelectionPanel();
 }
