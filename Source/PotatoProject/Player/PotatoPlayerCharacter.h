@@ -10,6 +10,7 @@ class USpringArmComponent;
 class UPotatoWeaponComponent;
 class UAmmoPopupWidget;
 class UAnimalPopup;
+class UNPCPopup;
 class UPotatoAnimalManagementComp;
 
 struct FInputActionValue;
@@ -77,6 +78,8 @@ protected:
 	UAmmoPopupWidget* AmmoPopupWidget;
 	UPROPERTY()
 	UAnimalPopup* AnimalPopupWidget;
+	UPROPERTY()
+	UNPCPopup* NPCPopupWidget;
 	
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
     TSubclassOf<UUserWidget> PauseMenuClass;

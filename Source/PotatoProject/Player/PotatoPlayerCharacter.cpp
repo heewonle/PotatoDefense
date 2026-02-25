@@ -13,6 +13,7 @@
 #include "UI/PauseMenu.h"
 #include "Components/CapsuleComponent.h"
 #include "../Building/PotatoAnimalManagementComp.h"
+#include "../UI/NPCPopup.h"
 
 APotatoPlayerCharacter::APotatoPlayerCharacter()
 {
@@ -529,8 +530,15 @@ void APotatoPlayerCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
 			AnimalPopupWidget->InitPopup(ManagementComp);
 		}
 		IsBarnMode = true;
-		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Barn에 닿았습니다!"));
-
+	}
+	if (OtherActor && (OtherActor != this) && OtherActor->GetName().Contains(TEXT("BP_TestBarn")))
+	{
+		//UPotatoNPCManagementComp* NPCMgementComp = OtherActor->FindComponentByClass<UPotatoNPCManagementComp>();
+		//if (ManagementComp)
+		//{
+		//	NPCPopupWidget->InitPopup(ManagementComp);
+		//}
+		IsBarnMode = true;
 	}
 }
 
@@ -545,6 +553,20 @@ void APotatoPlayerCharacter::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, A
 		{
 			if (AnimalPopupWidget->IsVisible()) {
 				AnimalPopupWidget->SetVisibility(ESlateVisibility::Hidden);
+				PlayerController->bShowMouseCursor = false;
+				FInputModeGameOnly InputMode;
+				PlayerController->SetInputMode(InputMode);
+			}
+		}
+	}
+	if (OtherActor && OtherActor->GetName().Contains(TEXT("BP_TestLumberMill")))
+	{
+		IsBarnMode = false;
+		APlayerController* PlayerController = Cast<APlayerController>(GetController());
+		if (NPCPopupWidget && PlayerController)
+		{
+			if (NPCPopupWidget->IsVisible()) {
+				NPCPopupWidget->SetVisibility(ESlateVisibility::Hidden);
 				PlayerController->bShowMouseCursor = false;
 				FInputModeGameOnly InputMode;
 				PlayerController->SetInputMode(InputMode);
