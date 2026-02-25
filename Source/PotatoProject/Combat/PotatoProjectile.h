@@ -36,6 +36,9 @@ public:
 	/** WeaponComponent에 의해 호출됨 */
 	void InitializeProjectile(UPotatoWeaponData* WeaponData);
 
+    // 탄도학 계산을 사용하여 초기 속도를 설정하는 버전
+    void InitializeProjectileWithBallistics(UPotatoWeaponData* WeaponData, const FVector& InitialVelocity);
+
 protected:
 	// 충돌 델리게이트
 	UFUNCTION()

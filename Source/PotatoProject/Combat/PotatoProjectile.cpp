@@ -61,6 +61,37 @@ void APotatoProjectile::InitializeProjectile(UPotatoWeaponData* WeaponData)
 	}
 }
 
+void APotatoProjectile::InitializeProjectileWithBallistics(UPotatoWeaponData* WeaponData, const FVector& InitialVelocity)
+{
+    if (!WeaponData)
+    {
+        return;
+    }
+
+    CachedWeaponData = WeaponData;
+
+    Damage = WeaponData->BaseDamage;
+    PierceCount = WeaponData->MaxPierceCount;;
+    ExplosionRadius = WeaponData->ExplosionRadius;
+
+    if (ProjectileMovement)
+    {
+        ProjectileMovement->InitialSpeed = WeaponData->ProjectileSpeed;
+        ProjectileMovement->MaxSpeed = WeaponData->ProjectileSpeed;
+        ProjectileMovement->ProjectileGravityScale = WeaponData->ProjectileGravityScale;
+        
+        // 보정된 속도 벡터 있으면 사용, 없으면 그냥 사격
+        if (!InitialVelocity.IsNearlyZero())
+        {
+            ProjectileMovement->Velocity = InitialVelocity; // 포물선 탄도 적용
+        }
+        else
+        {
+            ProjectileMovement->Velocity = GetActorForwardVector() * WeaponData->ProjectileSpeed; // 기존 사격 로직
+        }
+    }
+}
+
 void APotatoProjectile::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
                               FVector NormalImpulse, const FHitResult& Hit)
 {

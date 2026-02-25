@@ -150,7 +150,11 @@ public:
 	/** 중력 스케일: 0.0 = 중력 없음, 1.0 = 표준 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile", meta = (EditCondition = "FireType == EWeaponFireType::Projectile", EditConditionHides))
 	float ProjectileGravityScale = 1.0f;
-	
+    
+    /** 투사체 최대 사거리: 이 거리를 초과하면 최대 사거리 지점까지만 포물선 계산 후 낙차 (0.0 = 제한 없음) */
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile", meta = (EditCondition = "FireType == EWeaponFireType::Projectile", EditConditionHides))
+    float ProjectileMaxRange = 3000.0f;
+
 	// =================================================================
 	// 히트스캔 설정: FireType이 Hitscan일 경우 사용됨
 	// =================================================================

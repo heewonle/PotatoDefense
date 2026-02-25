@@ -8,6 +8,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "Camera/CameraShakeBase.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "DrawDebugHelpers.h"
 
 UPotatoWeaponComponent::UPotatoWeaponComponent()
 {
@@ -248,7 +249,8 @@ void UPotatoWeaponComponent::Fire()
 	switch (CurrentWeaponData->FireType)
 	{
 	case EWeaponFireType::Projectile:
-		FireProjectile(TargetLocation);
+		//FireProjectileWith(TargetLocation);
+        FireProjectileWithBallistics(TargetLocation);
 		break;
 	case EWeaponFireType::Hitscan:
 		FireHitscan(TargetLocation);
@@ -455,6 +457,80 @@ void UPotatoWeaponComponent::FireProjectile(const FVector& TargetLocation)
 	{
 		NewProjectile->InitializeProjectile(CurrentWeaponData);
 	}
+}
+
+void UPotatoWeaponComponent::FireProjectileWithBallistics(const FVector& TargetLocation)
+{
+    if (!CurrentWeaponData->ProjectileClass)
+    {
+        return;
+    }
+
+    /** SuggestProjecttileVelocity로 포물선 발사각 보정을 수행하는 로직 */
+    FVector SuggestedVelocity = FVector::ZeroVector;
+    FVector MuzzleLocation = GetMuzzleLocation();
+
+    // 사거리 초과 시 목표를 최대 사거리 지점으로 클램핑 수행
+    FVector ActualTargetLocation = TargetLocation;
+    if (CurrentWeaponData->ProjectileMaxRange > 0.0f)
+    {
+        FVector ToTarget = TargetLocation - MuzzleLocation;
+        if (ToTarget.Size() > CurrentWeaponData->ProjectileMaxRange)
+        {
+            ActualTargetLocation = MuzzleLocation + ToTarget.GetSafeNormal() * CurrentWeaponData->ProjectileMaxRange;
+        }
+    }
+    
+    float GravityZ = GetWorld()->GetGravityZ() * CurrentWeaponData->ProjectileGravityScale;
+
+    bool bSuccess = UGameplayStatics::SuggestProjectileVelocity(
+        this,
+        SuggestedVelocity,
+        MuzzleLocation,                      // 발사 위치: 총구 기준
+        ActualTargetLocation,
+        CurrentWeaponData->ProjectileSpeed,
+        false,
+        0.0f,
+        GravityZ,
+        ESuggestProjVelocityTraceOption::DoNotTrace
+    );
+
+    FRotator LaunchRotation = FRotator::ZeroRotator;
+
+    float DebugLifeTime = 2.0f;
+    FColor DebugColor = bSuccess ? FColor::Green : FColor::Red;
+
+    DrawDebugLine(GetWorld(), MuzzleLocation, ActualTargetLocation, DebugColor, false, DebugLifeTime, 0, 1.5f);
+
+    if (bSuccess)
+    {
+        LaunchRotation = SuggestedVelocity.GetSafeNormal().Rotation();
+    }
+    else
+    {
+        FVector FlatDirection = (ActualTargetLocation - MuzzleLocation);
+        
+        float ProjectileCompensation = FMath::Clamp(FlatDirection.Size(), 0.0f, 1.0f) * 0.25;
+        FVector LaunchDirection = FlatDirection.GetSafeNormal();
+        LaunchDirection.Z += ProjectileCompensation;
+        LaunchRotation = LaunchDirection.Rotation();
+    }
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = GetOwner();
+    SpawnParams.Instigator = Cast<APawn>(GetOwner());
+
+    APotatoProjectile* NewProjectile = GetWorld()->SpawnActor<APotatoProjectile>(
+        CurrentWeaponData->ProjectileClass,
+        MuzzleLocation,
+        LaunchRotation,
+        SpawnParams
+    );
+
+    if (NewProjectile)
+    {
+        NewProjectile->InitializeProjectile(CurrentWeaponData);
+    }
 }
 
 void UPotatoWeaponComponent::FireHitscan(const FVector& TargetLocation)

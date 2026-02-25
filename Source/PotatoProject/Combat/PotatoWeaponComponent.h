@@ -124,6 +124,9 @@ private:
     /** 물리 투사체 발사 로직: 감자, 옥수수, 호박 */
     void FireProjectile(const FVector& TargetLocation);
 
+    /** 탄도학 적용 발사 로직 */
+    void FireProjectileWithBallistics(const FVector& TargetLocation);
+
     /** 히트스캔 발사 로직: 당근 */
     void FireHitscan(const FVector& TargetLocation);
 
