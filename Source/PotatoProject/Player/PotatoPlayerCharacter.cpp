@@ -11,6 +11,7 @@
 #include "../UI/AmmoPopupWidget.h"
 #include "../UI/AnimalPopup.h"
 #include "UI/PauseMenu.h"
+#include "Components/CapsuleComponent.h"
 
 APotatoPlayerCharacter::APotatoPlayerCharacter()
 {
@@ -47,10 +48,16 @@ APotatoPlayerCharacter::APotatoPlayerCharacter()
 
 	//빌드모드 가능여부
 	IsBuildingMode = true;
+
+	// 동물관리 가능 여부
+	IsBarnMode = false;
 	//IsAmmoProduct = false;
 
-	
-
+	if (GetCapsuleComponent())
+	{
+		GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &APotatoPlayerCharacter::OnOverlapBegin);
+		GetCapsuleComponent()->OnComponentEndOverlap.AddDynamic(this, &APotatoPlayerCharacter::OnOverlapEnd);
+	}
 }
 
 void APotatoPlayerCharacter::BeginPlay()
@@ -504,14 +511,44 @@ float APotatoPlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const&
 	return ActualDamage;
 }
 
+void APotatoPlayerCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
+	bool bFromSweep, const FHitResult& SweepResult)
+{
+
+	if (OtherActor && (OtherActor != this) && OtherActor->GetName().Contains(TEXT("BP_TestBarn")))
+	{
+		IsBarnMode = true;
+		//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Barn에 닿았습니다!"));
+
+	}
+}
+
+void APotatoPlayerCharacter::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (OtherActor && OtherActor->GetName().Contains(TEXT("BP_TestBarn")))
+	{
+		IsBarnMode = false;
+		APlayerController* PlayerController = Cast<APlayerController>(GetController());
+		if (AnimalPopupWidget && PlayerController)
+		{
+			if (AnimalPopupWidget->IsVisible()) {
+				AnimalPopupWidget->SetVisibility(ESlateVisibility::Hidden);
+				PlayerController->bShowMouseCursor = false;
+				FInputModeGameOnly InputMode;
+				PlayerController->SetInputMode(InputMode);
+			}
+		}
+	}
+}
 
 void APotatoPlayerCharacter::OnBarnMode(const FInputActionValue& Value)
 {
+	if (!IsBarnMode) return;
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
-	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("OnBarnMode:!")));
 	if (AnimalPopupWidget && PlayerController)
 	{
-	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("OnBarnMode:2")));
 		if (AnimalPopupWidget->IsVisible()) {
 			AnimalPopupWidget->SetVisibility(ESlateVisibility::Hidden);
 			PlayerController->bShowMouseCursor = false;

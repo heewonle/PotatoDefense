@@ -86,6 +86,8 @@ private:
 	float TargetCameraDistance;
 	
 	bool IsBuildingMode;
+
+	bool IsBarnMode;
 	// Functions
 	//bool IsAmmoProduct;
 public:
@@ -102,6 +104,14 @@ protected:
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+
+	UFUNCTION()
+	void OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
+		bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION()
+	void OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	// Input Handlers
 	UFUNCTION()
 	void Move(const FInputActionValue& Value);
