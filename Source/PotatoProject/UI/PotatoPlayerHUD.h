@@ -191,6 +191,18 @@ protected:
 	
 	UPROPERTY(meta = (BindWidget))
 	class UPanelWidget* CrosshairContainer;
+	
+	// ================================================================
+	// Ammo Visual Settings
+	// ================================================================
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD|Style|Ammo")
+	FLinearColor NormalAmmoColor = FLinearColor::White;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD|Style|Ammo")
+	FLinearColor LowAmmoColor = FLinearColor(0.9f, 0.2f, 0.2f, 1.0f);
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD|Style|Ammo")
+	float LowAmmoPercentage = 0.25f;
 
 	// ================================================================
 	// Public API

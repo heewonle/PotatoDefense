@@ -255,9 +255,34 @@ void UPotatoPlayerHUD::HandleWeaponChanged(const UPotatoWeaponData* NewWeaponDat
 
 void UPotatoPlayerHUD::HandleAmmoChanged(int32 CurrentAmmo, int32 ReserveAmmo)
 {
-	if (Ammo)
+	if (!Ammo)
 	{
-		Ammo->SetText(FText::Format(NSLOCTEXT("HUD", "Ammo", "{0} / {1}"), CurrentAmmo, ReserveAmmo));
+		return;
+	}
+	int32 MaxAmmoSize = 0;
+	UPotatoWeaponComponent* WeaponComponent = GetWeaponComp();
+	if (WeaponComponent && WeaponComponent->CurrentWeaponData)
+	{
+		MaxAmmoSize = WeaponComponent->CurrentWeaponData->MaxAmmoSize;
+	}
+	FString AmmoString = FString::Printf(TEXT("%d/%d (+%d)"), CurrentAmmo, MaxAmmoSize, ReserveAmmo);
+	Ammo->SetText(FText::FromString(AmmoString));
+	
+	if (MaxAmmoSize > 0)
+	{
+		float CurrentRatio = (float)CurrentAmmo / (float)MaxAmmoSize;
+		if (CurrentRatio == 0)
+		{
+			Ammo->SetColorAndOpacity(LowAmmoColor);
+		}
+		else if (CurrentRatio <= LowAmmoPercentage)
+		{
+			Ammo->SetColorAndOpacity(LowAmmoColor);
+		}
+		else
+		{
+			Ammo->SetColorAndOpacity(NormalAmmoColor);
+		}
 	}
 }
 
