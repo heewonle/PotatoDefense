@@ -78,8 +78,8 @@ protected:
 	UAmmoPopupWidget* AmmoPopupWidget;
 	UPROPERTY()
 	UAnimalPopup* AnimalPopupWidget;
-	UPROPERTY()
-	UNPCPopup* NPCPopupWidget;
+	//UPROPERTY()
+	//UNPCPopup* NPCPopupWidget;
 	
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
     TSubclassOf<UUserWidget> PauseMenuClass;

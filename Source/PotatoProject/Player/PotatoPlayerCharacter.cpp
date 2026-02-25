@@ -561,7 +561,7 @@ void APotatoPlayerCharacter::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, A
 	}
 	if (OtherActor && OtherActor->GetName().Contains(TEXT("BP_TestLumberMill")))
 	{
-		IsBarnMode = false;
+		/*IsBarnMode = false;
 		APlayerController* PlayerController = Cast<APlayerController>(GetController());
 		if (NPCPopupWidget && PlayerController)
 		{
@@ -571,7 +571,7 @@ void APotatoPlayerCharacter::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, A
 				FInputModeGameOnly InputMode;
 				PlayerController->SetInputMode(InputMode);
 			}
-		}
+		}*/
 	}
 }
 
