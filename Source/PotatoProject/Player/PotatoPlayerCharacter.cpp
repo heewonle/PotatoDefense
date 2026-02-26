@@ -11,6 +11,9 @@
 #include "../UI/AmmoPopupWidget.h"
 #include "../UI/AnimalPopup.h"
 #include "UI/PauseMenu.h"
+#include "Components/CapsuleComponent.h"
+#include "../Building/PotatoAnimalManagementComp.h"
+#include "../UI/NPCPopup.h"
 
 APotatoPlayerCharacter::APotatoPlayerCharacter()
 {
@@ -45,12 +48,25 @@ APotatoPlayerCharacter::APotatoPlayerCharacter()
 	// Create weapon component
 	WeaponComponent = CreateDefaultSubobject<UPotatoWeaponComponent>(TEXT("WeaponComponent"));
 
+	//AnimalManagementComp = CreateDefaultSubobject<UPotatoAnimalManagementComp>(TEXT("AnimalComponent"));;
 	//빌드모드 가능여부
 	IsBuildingMode = true;
+
+	// 동물관리 가능 여부
+	IsBarnMode = false;
 	//IsAmmoProduct = false;
 
-	
+	if (GetCapsuleComponent())
+	{
+		GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &APotatoPlayerCharacter::OnOverlapBegin);
+		GetCapsuleComponent()->OnComponentEndOverlap.AddDynamic(this, &APotatoPlayerCharacter::OnOverlapEnd);
+	}
 
+	// 초기 HP 브로드캐스트
+	if (OnHPChanged.IsBound())
+	{
+		OnHPChanged.Broadcast(CurrentHP, MaxHP);
+	}
 }
 
 void APotatoPlayerCharacter::BeginPlay()
@@ -69,7 +85,10 @@ void APotatoPlayerCharacter::BeginPlay()
 	if (AnimalPopupClass)
 	{
 		AnimalPopupWidget = CreateWidget<UAnimalPopup>(GetWorld(), AnimalPopupClass);
-		//AnimalPopupWidget->InitPopup();
+		/*if(AnimalManagementComp)
+		{
+			AnimalPopupWidget->InitPopup(AnimalManagementComp);
+		}*/
 		if (AnimalPopupWidget)
 		{
 			AnimalPopupWidget->AddToViewport();
@@ -482,7 +501,7 @@ void APotatoPlayerCharacter::OnDeath()
 	{
 		GameMode->EndGame(false);
 	}
-	//캐릭터 죽는 애니메이션 실행필요
+	// TODO: 사망 애니메이션 추가
 }
 
 float APotatoPlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -492,26 +511,121 @@ float APotatoPlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const&
 	if (ActualDamage > 0.0f)
 	{
 		CurrentHP = FMath::Clamp(CurrentHP - ActualDamage, 0.0f, MaxHP);
-
-		///UE_LOG(LogTemp, Warning, TEXT("Remaining Health: %f"), CurrentHealth);
-
+		//UE_LOG(LogTemp, Warning, TEXT("Remaining Health: %f"), CurrentHealth);
+		
+		if (OnHPChanged.IsBound())
+		{
+			OnHPChanged.Broadcast(CurrentHP, MaxHP);
+		}
+		
 		if (CurrentHP <= 0.0f)
 		{
 			OnDeath();
 		}
+		
+		// 피격 사운드 및 애니메이션 재생
+		float CurrentTime = GetWorld()->GetTimeSeconds();
+		
+		if (CurrentTime - LastHitReactionTime >= HitReactionCooldown)
+		{
+			// 1. 사운드 재생
+			if (PainSounds.Num() > 0)
+			{
+				int32 RandomIndex = FMath::RandRange(0, PainSounds.Num() - 1);
+				USoundBase* SelectedSound = PainSounds[RandomIndex];
+				
+				if (SelectedSound)
+				{
+					UGameplayStatics::PlaySoundAtLocation(this, SelectedSound, GetActorLocation());
+				}
+			}
+			
+			// 2. 애니메이션 재생
+			if (HitReactMontage)
+			{
+				PlayAnimMontage(HitReactMontage);
+			}
+			
+			// 3. Camera Shake
+			if (HitCameraShakeClass)
+			{
+				APlayerController* PlayerController = Cast<APlayerController>(GetController());
+				if (PlayerController)
+				{
+					PlayerController->ClientStartCameraShake(HitCameraShakeClass);
+				}
+			}
+			
+			LastHitReactionTime = CurrentTime;
+		}
 	}
-
 	return ActualDamage;
 }
 
+void APotatoPlayerCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
+	bool bFromSweep, const FHitResult& SweepResult)
+{
+
+	if (OtherActor && (OtherActor != this) && OtherActor->GetName().Contains(TEXT("BP_TestBarn")))
+	{
+		UPotatoAnimalManagementComp* ManagementComp = OtherActor->FindComponentByClass<UPotatoAnimalManagementComp>();
+		if (ManagementComp)
+		{
+			AnimalPopupWidget->InitPopup(ManagementComp);
+		}
+		IsBarnMode = true;
+	}
+	if (OtherActor && (OtherActor != this) && OtherActor->GetName().Contains(TEXT("BP_TestBarn")))
+	{
+		//UPotatoNPCManagementComp* NPCMgementComp = OtherActor->FindComponentByClass<UPotatoNPCManagementComp>();
+		//if (ManagementComp)
+		//{
+		//	NPCPopupWidget->InitPopup(ManagementComp);
+		//}
+		IsBarnMode = true;
+	}
+}
+
+void APotatoPlayerCharacter::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (OtherActor && OtherActor->GetName().Contains(TEXT("BP_TestBarn")))
+	{
+		IsBarnMode = false;
+		APlayerController* PlayerController = Cast<APlayerController>(GetController());
+		if (AnimalPopupWidget && PlayerController)
+		{
+			if (AnimalPopupWidget->IsVisible()) {
+				AnimalPopupWidget->SetVisibility(ESlateVisibility::Hidden);
+				PlayerController->bShowMouseCursor = false;
+				FInputModeGameOnly InputMode;
+				PlayerController->SetInputMode(InputMode);
+			}
+		}
+	}
+	if (OtherActor && OtherActor->GetName().Contains(TEXT("BP_TestLumberMill")))
+	{
+		/*IsBarnMode = false;
+		APlayerController* PlayerController = Cast<APlayerController>(GetController());
+		if (NPCPopupWidget && PlayerController)
+		{
+			if (NPCPopupWidget->IsVisible()) {
+				NPCPopupWidget->SetVisibility(ESlateVisibility::Hidden);
+				PlayerController->bShowMouseCursor = false;
+				FInputModeGameOnly InputMode;
+				PlayerController->SetInputMode(InputMode);
+			}
+		}*/
+	}
+}
 
 void APotatoPlayerCharacter::OnBarnMode(const FInputActionValue& Value)
 {
+	if (!IsBarnMode) return;
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
-	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("OnBarnMode:!")));
 	if (AnimalPopupWidget && PlayerController)
 	{
-	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("OnBarnMode:2")));
 		if (AnimalPopupWidget->IsVisible()) {
 			AnimalPopupWidget->SetVisibility(ESlateVisibility::Hidden);
 			PlayerController->bShowMouseCursor = false;
