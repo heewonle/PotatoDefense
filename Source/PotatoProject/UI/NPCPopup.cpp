@@ -27,7 +27,7 @@ void UNPCPopup::NativeConstruct()
     }
 
     // ScrollBox 내 NPCListItem 자식들에 선택 델리게이트 바인딩
-    if (ScrollBox_79)
+    /*if (ScrollBox_79)
     {
         for (int32 i = 0; i < ScrollBox_79->GetChildrenCount(); ++i)
         {
@@ -36,7 +36,7 @@ void UNPCPopup::NativeConstruct()
                 Item->OnItemSelected.AddDynamic(this, &UNPCPopup::OnNPCItemSelected);
             }
         }
-    }
+    }*/
 }
 
 void UNPCPopup::NativeDestruct()
@@ -143,8 +143,34 @@ void UNPCPopup::RefreshNPCList()
     if (!ScrollBox_79 || !ManagementComp) return;
 
     const TArray<TObjectPtr<APotatoNPC>>& NPCs = ManagementComp->AssignedNPCs;
+    if (NPCListItemClass)
+    {
+        //바인딩 먼저 해제
+        TArray<UWidget*> AllChildren = ScrollBox_79->GetAllChildren();
+        for (UWidget* Child : AllChildren)
+        {
+            if (UNPCListItem* Item = Cast<UNPCListItem>(Child))
+            {
+                Item->OnItemSelected.RemoveDynamic(this, &UNPCPopup::OnNPCItemSelected);
+            }
+        }
+        ScrollBox_79->ClearChildren();
+        int NPCnum = ManagementComp->AssignedNPCs.Num();
+        for (int i = 0; i < NPCnum; i++)
+        {
+            UNPCListItem* NewItem = CreateWidget<UNPCListItem>(GetWorld(), NPCListItemClass);
+            ScrollBox_79->AddChild(NewItem);
+            APotatoNPC* NPC = ManagementComp->AssignedNPCs[i].Get();
+            if (NPC)
+            {
+                NewItem->SetNPCData(NPC);
+                NewItem->OnItemSelected.AddDynamic(this, &UNPCPopup::OnNPCItemSelected);
+                NewItem->SetSelected(false);
+            }
+        }
+    }
 
-    for (int32 i = 0; i < ScrollBox_79->GetChildrenCount(); ++i)
+    /*for (int32 i = 0; i < ScrollBox_79->GetChildrenCount(); ++i)
     {
         UNPCListItem* Item = Cast<UNPCListItem>(ScrollBox_79->GetChildAt(i));
         if (!Item) continue;
@@ -152,7 +178,7 @@ void UNPCPopup::RefreshNPCList()
         APotatoNPC* NPC = NPCs.IsValidIndex(i) ? NPCs[i].Get() : nullptr;
         Item->SetNPCData(NPC);
         Item->SetSelected(false);
-    }
+    }*/
 
     SelectedListItem = nullptr;
 }

@@ -13,6 +13,7 @@ class UButton;
 class UNPCListItem;
 class UPotatoNPCManagementComp;
 class APotatoNPC;
+class UNPCListItem;
 
 /**
  * WBP_NPCPopup
@@ -95,6 +96,9 @@ protected:
     UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
     TObjectPtr<UButton> Button_GoToMainMenu;
 
+    //instance할 class 원본
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+    TSubclassOf<UNPCListItem> NPCListItemClass;
     // ================================================================
     // Internal
     // ================================================================
