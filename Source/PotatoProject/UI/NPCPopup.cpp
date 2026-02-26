@@ -8,6 +8,7 @@
 #include "Components/TextBlock.h"
 #include "Components/ScrollBox.h"
 #include "Components/Button.h"
+#include "Components/Image.h"
 
 // ============================================================
 // Lifecycle
@@ -69,6 +70,15 @@ void UNPCPopup::InitPopup(UPotatoNPCManagementComp* InManagementComp)
         TArray<ENPCType> Keys;
         ManagementComp->NPCClassMap.GetKeys(Keys);
         CachedNPCType = Keys[0];
+        if (CachedNPCType == ENPCType::Miner && MinerIcon && RockIcon) {
+            Image_Portrait->SetBrushFromTexture(MinerIcon);
+            Image_Product->SetBrushFromTexture(RockIcon);
+        }
+        if (CachedNPCType == ENPCType::Lumberjack && LumberjackIcon && WoodIcon)
+        {
+            Image_Portrait->SetBrushFromTexture(LumberjackIcon);
+            Image_Product->SetBrushFromTexture(WoodIcon);
+        }
     }
 
     RefreshNPCList();
