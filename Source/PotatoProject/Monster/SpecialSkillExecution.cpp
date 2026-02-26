@@ -36,7 +36,7 @@ static bool IsPlayerLikeActor(AActor* A)
 	return false;
 }
 
-static bool IsAliveDestructibleStructure(AActor* A)
+static bool IsliveDestructibleStructure(AActor* A)
 {
 	if (!IsValid(A) || A->IsActorBeingDestroyed()) return false;
 
@@ -52,7 +52,7 @@ static bool IsAliveDestructibleStructure(AActor* A)
 
 static bool IsValidAoETarget(AActor* A)
 {
-	return IsPlayerLikeActor(A) || IsAliveDestructibleStructure(A);
+	return IsPlayerLikeActor(A) || IsliveDestructibleStructure(A);
 }
 
 // ============================================================
