@@ -19,7 +19,11 @@
 #include "TimerManager.h"
 
 #include "../UI/HealthBar.h"
+<<<<<<< HEAD
 #include "../UI/PotatoDamageTextPoolActor.h"
+=======
+#include "Core/PotatoGameStateBase.h"
+>>>>>>> origin/feature/level-design
 
 #include "FXUtils/PotatoFXUtils.h"
 #include "Monster/SpecialSkillComponent.h"
@@ -613,8 +617,17 @@ void APotatoMonster::Die()
 	if (bIsDead) return;
 	bIsDead = true;
 
+<<<<<<< HEAD
 	// OnDeath
 	if (SpecialSkillComp)
+=======
+    if (APotatoGameStateBase* GS = Cast<APotatoGameStateBase>(UGameplayStatics::GetGameState(this)))
+    {
+        GS->AddKill(Rank);
+    }
+
+	if (SpecialSkillComp && !SpecialSkill_OnDeath.IsNone())
+>>>>>>> origin/feature/level-design
 	{
 		SpecialSkillComp->TryStartOnDeath(this);
 
