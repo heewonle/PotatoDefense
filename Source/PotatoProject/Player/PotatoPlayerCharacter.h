@@ -99,6 +99,9 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UUserWidget> NPCPopupClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UUserWidget> InterGuideClass;
 	// 생성된 위젯을 참조할 변수
 	UPROPERTY()
 	UAmmoPopupWidget* AmmoPopupWidget;
@@ -112,6 +115,9 @@ protected:
 
     UPROPERTY()
     TObjectPtr<UUserWidget> PauseMenuWidget;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> InterGuideWidget;
 
 private:
 	float TargetCameraDistance;
