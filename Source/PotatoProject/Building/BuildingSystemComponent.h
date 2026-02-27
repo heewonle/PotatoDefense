@@ -12,6 +12,9 @@ class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBuildModeToggled, bool, bIsBuildMode);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnBuildSlotChanged, int32, SlotIndex, const UPotatoStructureData*, SelectedData);
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class POTATOPROJECT_API UBuildingSystemComponent : public UActorComponent
 {
@@ -78,6 +81,12 @@ public:
 	/** 고스트 액터: 배치 전 시각적 표현 */
 	UPROPERTY()
 	TObjectPtr<APotatoPlaceableStructure> GhostActor;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Building|Events")
+	FOnBuildModeToggled OnBuildModeToggled;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Building|Events")
+	FOnBuildSlotChanged OnBuildSlotChanged;
 	
 	// =================================================================
 	// Visual
