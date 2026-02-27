@@ -10,6 +10,7 @@
 #include "PotatoMonsterFinalStats.h"
 #include "SpecialSkillComponent.h"
 #include "PotatoMonsterAnimSet.h"
+#include "PotatoSplitComponent.h"
 #include "PotatoMonster.generated.h"
 
 
@@ -19,7 +20,7 @@ class UPotatoMonsterAnimSet;
 class UHealthBar;
 class UCapsuleComponent;
 class UPotatoHardenShellComponent;
-
+class APotatoMonsterSpawner;
 
 UCLASS()
 class POTATOPROJECT_API APotatoMonster : public ACharacter
@@ -146,6 +147,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Monster|Gimmick")
 	TObjectPtr<UPotatoHardenShellComponent> HardenShellComp = nullptr;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Monster|Comp")
+	UPotatoSplitComponent* SplitComp = nullptr;
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Monster|Anim")
 	TObjectPtr<UAnimMontage> BasicAttackMontage = nullptr;
 
@@ -320,4 +324,19 @@ private:
 	bool bHasLastHitPoint = false;
 	FVector LastHitPointWS = FVector::ZeroVector;
 	FName LastHitBoneName = NAME_None;
+public:
+	void OnFinalStatsApplied(); 
+	
+public:
+	// Split로 Spawn된 Child가 Spawner 경로를 안 타므로,
+	// 부모가 들고 있던 테이블/컨텍스트를 복사해 BuildFinalStats가 정상 동작하게 함
+	UFUNCTION(BlueprintCallable, Category="Monster|Preset")
+	void CopyPresetContextFrom(const APotatoMonster* Parent);
+
+	// Spawn된 Child가 Possess/BT 미실행인 경우가 많아서 강제로 AI를 보장
+	UFUNCTION(BlueprintCallable, Category="Monster|AI")
+	void EnsureAIControllerAndStartLogic();
+
+	UPROPERTY()
+	TWeakObjectPtr<APotatoMonsterSpawner> SpawnerRef;
 };

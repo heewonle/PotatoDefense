@@ -313,6 +313,8 @@ bool USpecialSkillComponent::CanTryStartSkill(FName SkillId) const
 
 bool USpecialSkillComponent::TryStartSkill(FName SkillId, AActor* InTarget)
 {
+	UE_LOG(LogTemp, Warning, TEXT("[Skill] TryStartSkill id=%s target=%s state=%d busy=%d"),
+	*SkillId.ToString(), *GetNameSafe(InTarget), (int32)State, IsBusy());
 	if (!CanTryStartSkill(SkillId)) return false;
 
 	const FPotatoMonsterSpecialSkillPresetRow* Row = FindRow(SkillId);

@@ -1,8 +1,13 @@
-﻿// PotatoPresetApplier.cpp (Single DefaultSpecialSkillId version) - FINAL
+﻿// PotatoPresetApplier.cpp (Single DefaultSpecialSkillId version) - FINAL (+ Split Fix + Debug Logs)
 // - TypePreset: DefaultSpecialSkillId 단일 바인딩
 // - RankPreset: SpecialCooldownScale / SpecialDamageScale + Proc 튜닝만
 // - SpecialSkillPresetTable: "캐시(Logic/Cooldown/DamageMultiplier 원본)"만 채움 (스케일 곱 X)
 //   * 최종 쿨/데미지 스케일 적용은 SpecialSkillComponent에서 ComputeFinal...로 처리하는 것을 정석으로 유지
+//
+// ✅ FIX:
+// - SplitSpec 복사 로직이 RankRow NULL fallback 경로에만 있었음 → 정상 경로에도 동일하게 적용
+// ✅ DEBUG:
+// - TypeRow/RankRow/SkillRow/DefaultId/Return Split 상태 로그 추가
 
 #include "PotatoPresetApplier.h"
 
@@ -39,6 +44,51 @@ FName UPotatoPresetApplier::GetTypeRowName(EMonsterType InType)
 
 	const FString Name = Enum->GetNameStringByValue((int64)InType);
 	return FName(*Name);
+}
+
+// ------------------------------------------------------------
+// ✅ Helper: Split을 SkillRow에서 OutFinalStats로 복사 + (선택) Split이면 Skill 바인딩 제거
+// ------------------------------------------------------------
+static void ApplySplitFromSkillRow(const FPotatoMonsterSpecialSkillPresetRow* SkillRow, FPotatoMonsterFinalStats& OutStats, FName TypeDefaultSkillId)
+{
+	if (!SkillRow)
+	{
+		OutStats.bEnableSplit = false;
+		OutStats.SplitSpec = FPotatoSplitSpec();
+		return;
+	}
+
+	const bool bIsSplitLogic = (SkillRow->Logic == EMonsterSpecialLogic::Split);
+	const bool bIsSplitExec  = (SkillRow->Execution == EMonsterSpecialExecution::SummonSplit);
+	const bool bEnableSplit  = (SkillRow->bEnableSplit || bIsSplitLogic || bIsSplitExec);
+
+	OutStats.bEnableSplit = bEnableSplit;
+
+	if (bEnableSplit)
+	{
+		OutStats.SplitSpec.ThresholdPercents     = SkillRow->SplitThresholdPercents;
+		OutStats.SplitSpec.MinMaxHpToAllowSplit  = SkillRow->SplitMinMaxHpToAllow;
+		OutStats.SplitSpec.MaxDepth              = SkillRow->SplitMaxDepth;
+		OutStats.SplitSpec.SpawnCount            = SkillRow->SplitSpawnCount;
+		OutStats.SplitSpec.OwnerScaleMultiplier  = SkillRow->SplitOwnerScaleMultiplier;
+		OutStats.SplitSpec.ChildMaxHpRatio       = SkillRow->SplitChildMaxHpRatio;
+		OutStats.SplitSpec.SpawnJitterRadius     = SkillRow->SplitSpawnJitterRadius;
+		OutStats.SplitSpec.SpawnZOffset          = SkillRow->SplitSpawnZOffset;
+
+		// 안전: 퍼센트 비어있으면 최소 1개
+		if (OutStats.SplitSpec.ThresholdPercents.Num() == 0)
+		{
+			OutStats.SplitSpec.ThresholdPercents = { 0.5f };
+		}
+
+		// ✅ 중요: Split은 Skill 시스템(타겟/쿨타임)으로 돌리지 않도록 차단
+		OutStats.DefaultSpecialSkillId = NAME_None;
+	}
+	else
+	{
+		OutStats.SplitSpec = FPotatoSplitSpec();
+		OutStats.DefaultSpecialSkillId = TypeDefaultSkillId;
+	}
 }
 
 FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
@@ -85,6 +135,10 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 	Out.DefaultSpecialCooldown = 0.f;
 	Out.DefaultSpecialDamageMultiplier = 1.f;
 
+	// Split 기본값
+	Out.bEnableSplit = false;
+	Out.SplitSpec = FPotatoSplitSpec();
+
 	// -------------------------
 	// 1) TypePreset 로드
 	// -------------------------
@@ -107,10 +161,13 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 		TypeBaseAttackRange = TypeRow->BaseAttackRange;
 		TypeMoveSpeedMul = TypeRow->MoveSpeedMultiplier;
 		TypeIsRanged = TypeRow->bIsRanged;
-		Out.bEnableHardenShell      = TypeRow->bEnableHardenShell;
-		Out.HardenTriggerHpPercent  = TypeRow->HardenTriggerHpPercent;
-		Out.HardenDamageMultiplier  = TypeRow->HardenDamageMultiplier;
-		Out.HardenTint              = TypeRow->HardenTint;
+
+		Out.bEnableHardenShell = TypeRow->bEnableHardenShell;
+		Out.HardenDamageMultiplier = FMath::Max(0.f, TypeRow->HardenDamageMultiplier);
+		Out.HardenTriggerStepPercent = FMath::Clamp(TypeRow->HardenTriggerStepPercent, 0.01f, 1.0f);
+		Out.HardenDurationSeconds    = FMath::Max(0.01f, TypeRow->HardenDurationSeconds);
+		Out.HardenTintStrengthParamName = TypeRow->HardenTintStrengthParamName;
+		Out.HardenTintStrengthValue     = TypeRow->HardenTintStrengthValue;
 
 		// ✅ 단일 DefaultSpecialSkillId
 		TypeDefaultSkillId = TypeRow->DefaultSpecialSkillId;
@@ -136,6 +193,15 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 		Out.BehaviorTree = DefaultBehaviorTree;
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] Tables Type=%s Rank=%s Skill=%s"),
+		*GetNameSafe(TypePresetTable),
+		*GetNameSafe(RankPresetTable),
+		*GetNameSafe(SpecialSkillPresetTable));
+
+	UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] TypeDefaultSkillId=%s TypeRow=%s"),
+		*TypeDefaultSkillId.ToString(),
+		TypeRow ? TEXT("OK") : TEXT("NULL"));
+
 	Out.AttackDamage = TypeBaseAttackDamage;
 	Out.AttackRange = TypeBaseAttackRange;
 
@@ -157,6 +223,9 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 		);
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] RankRow=%s Rank=%d"),
+		RankRow ? TEXT("OK") : TEXT("NULL"), (int32)Rank);
+
 	if (!RankRow)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Preset] RankRow missing. Rank=%d Table=%s (fallback applied)"),
@@ -177,7 +246,7 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 		Out.SpecialCooldownScale = 1.0f;
 		Out.SpecialDamageScale = 1.0f;
 
-		// ✅ SkillPreset 캐시는 "원본"만 저장 (스케일 곱 X)
+		// ✅ SkillPreset 캐시 + Split 적용 (원본만 저장)
 		if (Out.DefaultSpecialSkillId != NAME_None && SpecialSkillPresetTable)
 		{
 			const FPotatoMonsterSpecialSkillPresetRow* SkillRow =
@@ -185,11 +254,21 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 					Out.DefaultSpecialSkillId, TEXT("PresetApplier::BuildFinalStats(SkillPreset-NoRank)")
 				);
 
+			UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] SkillRow(NoRank)=%s ForId=%s"),
+				SkillRow ? TEXT("OK") : TEXT("NULL"), *Out.DefaultSpecialSkillId.ToString());
+
 			if (SkillRow)
 			{
+				UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] Row(NoRank) Logic=%d Exec=%d bEnableSplit=%d ThNum=%d"),
+					(int32)SkillRow->Logic, (int32)SkillRow->Execution,
+					SkillRow->bEnableSplit ? 1 : 0,
+					SkillRow->SplitThresholdPercents.Num());
+
 				Out.DefaultSpecialLogic = SkillRow->Logic;
 				Out.DefaultSpecialCooldown = SkillRow->Cooldown;
 				Out.DefaultSpecialDamageMultiplier = SkillRow->DamageMultiplier;
+
+				ApplySplitFromSkillRow(SkillRow, Out, TypeDefaultSkillId);
 			}
 			else
 			{
@@ -203,11 +282,18 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 			}
 		}
 
+		UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] RETURN(NoRank) Split Enable=%d ThNum=%d DefaultId=%s"),
+			Out.bEnableSplit ? 1 : 0,
+			Out.SplitSpec.ThresholdPercents.Num(),
+			*Out.DefaultSpecialSkillId.ToString());
+
 		// Proc는 위 기본값 유지
 		return Out;
 	}
 
-	// HP multiplier 랜덤(스폰 1회)
+	// -------------------------
+	// Rank normal path
+	// -------------------------
 	float HpMul = RankRow->HpMultiplierMin;
 	if (RankRow->HpMultiplierMax > RankRow->HpMultiplierMin + KINDA_SMALL_NUMBER)
 	{
@@ -226,11 +312,7 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 	Out.SpecialCooldownScale = FMath::Max(0.01f, RankRow->SpecialCooldownScale);
 	Out.SpecialDamageScale = FMath::Max(0.0f, RankRow->SpecialDamageScale);
 
-	// -------------------------
-	//  Proc 주입 규칙
-	//   - 기본: Rank 값 적용
-	//   - 단, TypeRow가 있고 bOverrideOnAttackSpecialProc=true면 Type가 최우선
-	// -------------------------
+	// Proc
 	Out.bEnableOnAttackSpecialProc = RankRow->bEnableOnAttackSpecialProc;
 	Out.OnAttackSpecialChance = RankRow->OnAttackSpecialChance;
 	Out.OnAttackSpecialProcCooldown = RankRow->OnAttackSpecialProcCooldown;
@@ -257,7 +339,7 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 
 	// -------------------------
 	// 4) SpecialSkillPreset 캐시 적용 (원본: Logic/Cooldown/DmgMul)
-	//    - 최종 실행에서 스케일 반영은 SkillComp가 담당 (정석)
+	//    + ✅ SplitSpec도 여기서 같이 반영해야 정상 경로에서 동작함
 	// -------------------------
 	if (Out.DefaultSpecialSkillId != NAME_None && SpecialSkillPresetTable)
 	{
@@ -266,11 +348,23 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 				Out.DefaultSpecialSkillId, TEXT("PresetApplier::BuildFinalStats(SkillPreset)")
 			);
 
+		UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] SkillRow=%s ForId=%s"),
+			SkillRow ? TEXT("OK") : TEXT("NULL"),
+			*Out.DefaultSpecialSkillId.ToString());
+
 		if (SkillRow)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] Row Logic=%d Exec=%d bEnableSplit=%d ThNum=%d"),
+				(int32)SkillRow->Logic, (int32)SkillRow->Execution,
+				SkillRow->bEnableSplit ? 1 : 0,
+				SkillRow->SplitThresholdPercents.Num());
+
 			Out.DefaultSpecialLogic = SkillRow->Logic;
 			Out.DefaultSpecialCooldown = SkillRow->Cooldown;                 // ✅ 원본
 			Out.DefaultSpecialDamageMultiplier = SkillRow->DamageMultiplier; // ✅ 원본
+
+			// ✅ FIX: Split 반영(정상 경로)
+			ApplySplitFromSkillRow(SkillRow, Out, TypeDefaultSkillId);
 		}
 		else
 		{
@@ -283,6 +377,17 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 			Out.DefaultSpecialDamageMultiplier = 1.f;
 		}
 	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] Skip SkillPreset. DefaultId=%s SkillTable=%s"),
+			*Out.DefaultSpecialSkillId.ToString(),
+			*GetNameSafe(SpecialSkillPresetTable));
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[PresetDBG] RETURN Split Enable=%d ThNum=%d DefaultId=%s"),
+		Out.bEnableSplit ? 1 : 0,
+		Out.SplitSpec.ThresholdPercents.Num(),
+		*Out.DefaultSpecialSkillId.ToString());
 
 	return Out;
 }

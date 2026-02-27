@@ -255,6 +255,45 @@ struct POTATOPROJECT_API FPotatoMonsterSpecialSkillPresetRow : public FTableRowB
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Spawn|Rotation",
 		meta=(EditCondition="bFaceTargetOnSpawn"))
 	bool bYawOnlyRotation = true;
+	
+	// ============================================================
+	// ✅ NEW: Split (HP threshold based)
+	// - Logic == Split 일 때 사용
+	// - Execution == SummonSplit 로 같이 걸어도 됨
+	// ============================================================
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split")
+	bool bEnableSplit = false;
+
+	// ex) 0.6, 0.3  (내림차순 권장)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split")
+	TArray<float> SplitThresholdPercents;
+
+	// MaxHP가 이 값 미만이면 Split 금지(자연스럽게 멈춤)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0.0"))
+	float SplitMinMaxHpToAllow = 50.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0"))
+	int32 SplitMaxDepth = 3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="1"))
+	int32 SplitSpawnCount = 1;
+
+	// Split 시 본체 스케일 곱
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0.01"))
+	float SplitOwnerScaleMultiplier = 0.85f;
+
+	// 자식 MaxHP = 부모 MaxHP * 비율 (자식은 풀피로 시작)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0.01"))
+	float SplitChildMaxHpRatio = 0.65f;
+
+	// 스폰 분산(겹침 방지)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0.0"))
+	float SplitSpawnJitterRadius = 60.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split")
+	float SplitSpawnZOffset = 10.f;
+	
 	// ============================================================
 	// ✅ NEW: Projectile 이동/충돌(독침)
 	// ============================================================

@@ -5,6 +5,35 @@
 #include "../Core/PotatoEnums.h"
 #include "PotatoMonsterAnimSet.h"
 #include "PotatoMonsterFinalStats.generated.h"
+USTRUCT(BlueprintType)
+struct POTATOPROJECT_API FPotatoSplitSpec
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split")
+	TArray<float> ThresholdPercents; // 0.6, 0.3 ...
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0.0"))
+	float MinMaxHpToAllowSplit = 50.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0"))
+	int32 MaxDepth = 3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="1"))
+	int32 SpawnCount = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0.01"))
+	float OwnerScaleMultiplier = 0.85f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0.01"))
+	float ChildMaxHpRatio = 0.65f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split", meta=(ClampMin="0.0"))
+	float SpawnJitterRadius = 60.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split")
+	float SpawnZOffset = 10.f;
+};
 
 USTRUCT(BlueprintType)
 struct FPotatoMonsterFinalStats
@@ -78,15 +107,34 @@ struct FPotatoMonsterFinalStats
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Stats|Special Proc", meta=(ClampMin="0.0"))
 	float OnAttackSpecialProcCooldown = 1.50f;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gimmick|HardenShell")
+	// =========================
+	// HardenShell (Data-driven)
+	// =========================
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell")
 	bool bEnableHardenShell = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gimmick|HardenShell", meta=(ClampMin="0.0", ClampMax="1.0"))
-	float HardenTriggerHpPercent = 0.30f;
+	// 데미지 배율(0.5면 50%만 받음)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell", meta=(ClampMin="0.0"))
+	float HardenDamageMultiplier = 0.5f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gimmick|HardenShell", meta=(ClampMin="0.0"))
-	float HardenDamageMultiplier = 0.50f;
+	// 발동 스텝(0.10 = 10% 단위)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell", meta=(ClampMin="0.01", ClampMax="1.0"))
+	float HardenTriggerStepPercent = 0.10f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gimmick|HardenShell")
-	FLinearColor HardenTint = FLinearColor(0.4f, 0.4f, 0.45f, 1.f);
+	// 유지시간(초)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell", meta=(ClampMin="0.01"))
+	float HardenDurationSeconds = 10.0f;
+
+	// 머티리얼 파라미터
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell|Material")
+	FName HardenTintStrengthParamName = TEXT("TintStrength");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell|Material")
+	float HardenTintStrengthValue = 1.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split")
+	bool bEnableSplit = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split")
+	FPotatoSplitSpec SplitSpec;
 };

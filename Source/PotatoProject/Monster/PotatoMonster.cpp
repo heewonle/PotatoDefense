@@ -1,9 +1,13 @@
-﻿// PotatoMonster.cpp (STABILIZED)
-// - Crash fix: ScheduleTimerSafe 안정화 (World null/teardown/Delay NaN/weak delegate)
-// - Bug fix: TakeDamage에서 HardenShell로 줄인 Incoming을 Applied에 반영
-// - Safety: GetWorld() null guard (DamageText Now 등)
-// - Safety: TryPlayHitReact에 IsActorBeingDestroyed 가드
-// - Safety: Die에서 CancelActiveSkill이 없어도 빌드되도록 UFunction 호출로 보호
+﻿// PotatoMonster.cpp (STABILIZED + Split Child Context + AI Possess Fix)
+//
+// ✅ 추가/수정 요약
+// 1) Split로 스폰된 Child가 Type/Rank/Skill 테이블 포인터를 못 받아서 FinalStats가 기본값으로 떨어지는 문제 해결
+//    - CopyPresetContextFrom(Parent) 추가
+// 2) Split Child가 AIController Possess/BT 실행이 안 돼서 "안 움직이는" 문제 해결
+//    - EnsureAIControllerAndStartLogic() 추가
+//    - ApplyPresetsOnce 마지막에 EnsureAIControllerAndStartLogic() 호출
+// 3) OnFinalStatsApplied는 "프리셋 외부에서 FinalStats를 수동 주입"할 때만 쓰도록 유지
+//    - ApplyPresetsOnce 내부에서는 이미 SplitSpec 주입하므로 중복 호출은 하지 않음
 
 #include "PotatoMonster.h"
 
@@ -17,11 +21,12 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+
 #include "../UI/HealthBar.h"
 #include "../UI/PotatoDamageTextPoolActor.h"
 #include "Core/PotatoGameStateBase.h"
 
-
+#include "PotatoSplitComponent.h"
 #include "FXUtils/PotatoFXUtils.h"
 #include "Monster/SpecialSkillComponent.h"
 #include "PotatoCombatComponent.h"
@@ -82,16 +87,11 @@ static bool ScheduleTimerSafe(
 	void (APotatoMonster::*Func)(),
 	float DelaySec)
 {
-	// Obj 유효성
 	if (!IsValid(Obj) || Obj->IsActorBeingDestroyed())
 		return false;
 
-	// DelaySec NaN/Inf 방어 (SetTimer는 이런 값에 약함)
-	if (!FMath::IsFinite(DelaySec))
-	{
-		DelaySec = 0.f;
-	}
-	if (DelaySec < 0.f)
+	// DelaySec NaN/Inf/음수 방어
+	if (!FMath::IsFinite(DelaySec) || DelaySec < 0.f)
 	{
 		DelaySec = 0.f;
 	}
@@ -101,28 +101,17 @@ static bool ScheduleTimerSafe(
 		return false;
 
 	FTimerManager& TM = W->GetTimerManager();
-
-	// 연장/재예약 정책: 기존 타이머는 제거 후 다시 건다
 	TM.ClearTimer(Handle);
 
-	// raw this 바인딩 대신 Weak로 안전화
-	TWeakObjectPtr<APotatoMonster> WeakObj = Obj;
-
-	auto Call = [WeakObj, Func]()
-	{
-		if (APotatoMonster* P = WeakObj.Get())
-		{
-			(P->*Func)();
-		}
-	};
-
+	// ✅ 0초는 굳이 next-tick 타이머로 돌리지 말고 즉시 호출(가장 안전)
 	if (DelaySec <= 0.f)
 	{
-		TM.SetTimerForNextTick(FTimerDelegate::CreateLambda(Call));
+		(Obj->*Func)();
 		return true;
 	}
 
-	TM.SetTimer(Handle, FTimerDelegate::CreateLambda(Call), DelaySec, false);
+	// ✅ 엔진이 제공하는 "UObject + 멤버함수" 오버로드 사용 (가장 안정적)
+	TM.SetTimer(Handle, Obj, Func, DelaySec, false);
 	return true;
 }
 
@@ -187,6 +176,8 @@ void APotatoMonster::UpdateHPBarLocation()
 APotatoMonster::APotatoMonster()
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	// ✅ Split Child도 SpawnDefaultController가 정상 동작하도록
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
 	CombatComp = CreateDefaultSubobject<UPotatoCombatComponent>(TEXT("CombatComp"));
@@ -206,6 +197,9 @@ APotatoMonster::APotatoMonster()
 	{
 		HardenShellComp->Deactivate();
 	}
+
+	// Split
+	SplitComp = CreateDefaultSubobject<UPotatoSplitComponent>(TEXT("SplitComp"));
 }
 
 void APotatoMonster::BeginPlay()
@@ -235,6 +229,70 @@ void APotatoMonster::BeginPlay()
 	bHasLastHitPoint = false;
 	LastHitPointWS = FVector::ZeroVector;
 	LastHitBoneName = NAME_None;
+	
+	UE_LOG(LogTemp, Warning, TEXT("[Monster] BeginPlay Pawn=%s Controller=%s AutoPossessAI=%d AIClass=%s"),
+	*GetNameSafe(this),
+	*GetNameSafe(GetController()),
+	(int32)AutoPossessAI,
+	*GetNameSafe(AIControllerClass)
+);
+}
+
+// ============================================================
+// ✅ Split Child Context / AI Fix
+// ============================================================
+
+void APotatoMonster::CopyPresetContextFrom(const APotatoMonster* Parent)
+{
+	if (!IsValid(Parent)) return;
+
+	// ✅ 테이블/컨텍스트 복사 (Split Child가 가장 자주 놓치는 부분)
+	TypePresetTable         = Parent->TypePresetTable;
+	RankPresetTable         = Parent->RankPresetTable;
+	SpecialSkillPresetTable = Parent->SpecialSkillPresetTable;
+	DefaultBehaviorTree     = Parent->DefaultBehaviorTree;
+
+	// ✅ 스탯 빌드에 필요한 값들
+	WaveBaseHP           = Parent->WaveBaseHP;
+	PlayerReferenceSpeed = Parent->PlayerReferenceSpeed;
+
+	// ✅ 정책: Split이면 보통 동일 타입/랭크 유지
+	MonsterType = Parent->MonsterType;
+	Rank        = Parent->Rank;
+
+	// (옵션) 필요하면 더 복사: LanePoints/WarehouseActor 등
+	// LanePoints = Parent->LanePoints;
+	// WarehouseActor = Parent->WarehouseActor;
+}
+
+void APotatoMonster::EnsureAIControllerAndStartLogic()
+{
+	// 1) Possess 보장
+	if (!Controller)
+	{
+		SpawnDefaultController();
+	}
+
+	AAIController* AICon = Cast<AAIController>(Controller);
+	if (!AICon)
+	{
+		return;
+	}
+
+	// 2) BT 실행 보장 (Split Child "안 움직임"의 핵심 원인 케이스)
+	if (ResolvedBehaviorTree)
+	{
+		AICon->RunBehaviorTree(ResolvedBehaviorTree);
+	}
+
+	// 3) 이동 모드 보정(혹시 DisableMovement 상태로 남는 케이스)
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		if (MoveComp->MovementMode == MOVE_None)
+		{
+			MoveComp->SetMovementMode(MOVE_Walking);
+		}
+	}
 }
 
 // ============================================================
@@ -258,6 +316,9 @@ void APotatoMonster::ApplyPresetsOnce()
 		DefaultBehaviorTree
 	);
 
+	// ----------------------------
+	// Base Stats Apply
+	// ----------------------------
 	MaxHealth = FinalStats.MaxHP;
 	Health = MaxHealth;
 
@@ -268,34 +329,55 @@ void APotatoMonster::ApplyPresetsOnce()
 
 	ResolvedBehaviorTree = FinalStats.BehaviorTree;
 
+	// ----------------------------
+	// Combat
+	// ----------------------------
 	if (CombatComp)
 	{
 		CombatComp->InitFromStats(FinalStats);
 	}
 
-	SetAnimSet(FinalStats.AnimSet);
-
-	// HardenShell
-	if (HardenShellComp)
+	// ----------------------------
+	// Split (스펙 주입만! PostDamageCheck 호출 금지)
+	// ----------------------------
+	if (SplitComp)
 	{
-		if (FinalStats.bEnableHardenShell)
-		{
-			HardenShellComp->Activate(true);
+		UE_LOG(LogTemp, Warning, TEXT("[Split] Applied. Enable=%d ThresholdNum=%d MinMaxHp=%.1f MaxDepth=%d"),
+			FinalStats.bEnableSplit ? 1 : 0,
+			FinalStats.SplitSpec.ThresholdPercents.Num(),
+			FinalStats.SplitSpec.MinMaxHpToAllowSplit,
+			FinalStats.SplitSpec.MaxDepth);
 
-			HardenShellComp->HpPropertyName    = GET_MEMBER_NAME_CHECKED(APotatoMonster, Health);
-			HardenShellComp->MaxHpPropertyName = GET_MEMBER_NAME_CHECKED(APotatoMonster, MaxHealth);
-
-			HardenShellComp->TriggerHpPercent = FMath::Clamp(FinalStats.HardenTriggerHpPercent, 0.f, 1.f);
-			HardenShellComp->DamageMultiplierWhenHardened = FMath::Max(0.f, FinalStats.HardenDamageMultiplier);
-			HardenShellComp->HardenTint = FinalStats.HardenTint;
-		}
-		else
-		{
-			HardenShellComp->Deactivate();
-		}
+		SplitComp->ApplySpecFromFinalStats(FinalStats.SplitSpec, FinalStats.bEnableSplit);
+		// Depth는 "부모가 자식에게 넘길 때" SetSplitDepth로 처리.
 	}
 
+	// ----------------------------
+	// AnimSet
+	// ----------------------------
+	SetAnimSet(FinalStats.AnimSet);
+
+	// ----------------------------
+	// HardenShell
+	// ----------------------------
+	if (HardenShellComp && FinalStats.bEnableHardenShell)
+	{
+		HardenShellComp->Activate(true);
+
+		HardenShellComp->InitFromFinalStats(
+			FinalStats,
+			GET_MEMBER_NAME_CHECKED(APotatoMonster, Health),
+			GET_MEMBER_NAME_CHECKED(APotatoMonster, MaxHealth)
+		);
+	}
+	else if (HardenShellComp)
+	{
+		HardenShellComp->Deactivate();
+	}
+
+	// ----------------------------
 	// SpecialSkill
+	// ----------------------------
 	if (SpecialSkillComp)
 	{
 		SpecialSkillComp->SkillPresetTable = SpecialSkillPresetTable;
@@ -304,6 +386,9 @@ void APotatoMonster::ApplyPresetsOnce()
 
 	UpdateHPBarLocation();
 	RefreshHPBar();
+
+	// ✅ Split Child 포함: 프리셋 적용 후 AI/BT 보장
+	EnsureAIControllerAndStartLogic();
 }
 
 // ============================================================
@@ -344,6 +429,12 @@ float APotatoMonster::TakeDamage(
 		HardenShellComp->PostDamageCheck();
 	}
 
+	// ✅ HP 기반 Split 체크
+	if (SplitComp)
+	{
+		SplitComp->PostDamageCheck();
+	}
+
 	// OnHit SpecialSkill
 	if (SpecialSkillComp)
 	{
@@ -359,19 +450,19 @@ float APotatoMonster::TakeDamage(
 		}
 	}
 
-    if (EventInstigator)
-    {
-        APawn* InstigatorPawn = EventInstigator->GetPawn();
-        if (InstigatorPawn)
-        {
-            // WeaponComponent 탐색
-            if (UPotatoWeaponComponent* WeaponComp = InstigatorPawn->FindComponentByClass<UPotatoWeaponComponent>())
-            {
-                const bool bIsKill = (Health <= 0.f);
-                WeaponComp->OnEnemyHit.Broadcast(bIsKill);
-            }
-        }
-    }
+	// Weapon hit notify
+	if (EventInstigator)
+	{
+		APawn* InstigatorPawn = EventInstigator->GetPawn();
+		if (InstigatorPawn)
+		{
+			if (UPotatoWeaponComponent* WeaponComp = InstigatorPawn->FindComponentByClass<UPotatoWeaponComponent>())
+			{
+				const bool bIsKill = (Health <= 0.f);
+				WeaponComp->OnEnemyHit.Broadcast(bIsKill);
+			}
+		}
+	}
 
 	// DamageText
 	if (DamageTextPool)
@@ -629,20 +720,17 @@ void APotatoMonster::Die()
 	if (bIsDead) return;
 	bIsDead = true;
 
-
-    if (APotatoGameStateBase* GS = Cast<APotatoGameStateBase>(UGameplayStatics::GetGameState(this)))
-    {
-        GS->AddKill(Rank);
-    }
-
-	if (SpecialSkillComp && SpecialSkillComp->TryStartOnDeath(this))
-
+	if (APotatoGameStateBase* GS = Cast<APotatoGameStateBase>(UGameplayStatics::GetGameState(this)))
 	{
-		SpecialSkillComp->TryStartOnDeath(this);
+		GS->AddKill(Rank);
+	}
 
-		// ✅ CancelActiveSkill이 C++에 없어도 빌드되게 보호 호출
-		// (있으면 호출, 없으면 무시)
-		CallUFunctionIfExists(SpecialSkillComp, TEXT("CancelActiveSkill"));
+	if (SpecialSkillComp)
+	{
+		if (SpecialSkillComp->TryStartOnDeath(this))
+		{
+			CallUFunctionIfExists(SpecialSkillComp, TEXT("CancelActiveSkill"));
+		}
 	}
 
 	UWorld* World = GetWorld();
@@ -754,4 +842,20 @@ void APotatoMonster::AdvanceLaneIndex()
 void APotatoMonster::SetAnimSet(UPotatoMonsterAnimSet* InSet)
 {
 	AnimSet = InSet;
+}
+
+void APotatoMonster::OnFinalStatsApplied()
+{
+	// ✅ "외부에서 Monster->FinalStats = AppliedStats;" 후 수동 호출하는 용도
+	// ApplyPresetsOnce 내부에서는 이미 Split/Harden/Skill/AnimSet까지 적용하므로
+	// 여기서는 최소 범위만 유지 (필요한 것만)
+	if (SplitComp)
+	{
+		SplitComp->ApplySpecFromFinalStats(FinalStats.SplitSpec, FinalStats.bEnableSplit);
+	}
+
+	// (선택) 수동 주입 경로까지 커버하고 싶으면 아래를 켜도 됨
+	// SetAnimSet(FinalStats.AnimSet);
+	// if (SpecialSkillComp) { SpecialSkillComp->SkillPresetTable = SpecialSkillPresetTable; SpecialSkillComp->InitFromFinalStats(FinalStats); }
+	// EnsureAIControllerAndStartLogic();
 }

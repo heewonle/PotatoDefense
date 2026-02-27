@@ -78,17 +78,22 @@ struct POTATOPROJECT_API FPotatoMonsterTypePresetRow : public FTableRowBase
 	// =========================
 	// Gimmick: Harden Shell
 	// =========================
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gimmick|HardenShell")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell")
 	bool bEnableHardenShell = false;
 
-	// HP% 이하로 내려가면 Harden 발동 (0~1)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gimmick|HardenShell", meta=(ClampMin="0.0", ClampMax="1.0"))
-	float HardenTriggerHpPercent = 0.30f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell", meta=(ClampMin="0.0"))
+	float HardenDamageMultiplier = 0.5f;
 
-	// Harden 상태일 때 받는 데미지 배율(0.5면 절반)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gimmick|HardenShell", meta=(ClampMin="0.0"))
-	float HardenDamageMultiplier = 0.50f;
+	// 0.10 = 10% 단위
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell", meta=(ClampMin="0.01", ClampMax="1.0"))
+	float HardenTriggerStepPercent = 0.10f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Gimmick|HardenShell")
-	FLinearColor HardenTint = FLinearColor(0.4f, 0.4f, 0.45f, 1.f);
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell", meta=(ClampMin="0.01"))
+	float HardenDurationSeconds = 10.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell|Material")
+	FName HardenTintStrengthParamName = TEXT("TintStrength");
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell|Material")
+	float HardenTintStrengthValue = 1.0f;
 };
