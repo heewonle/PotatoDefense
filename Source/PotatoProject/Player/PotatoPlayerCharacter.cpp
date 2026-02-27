@@ -99,6 +99,15 @@ void APotatoPlayerCharacter::BeginPlay()
 			AnimalPopupWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
+	if (InterGuideClass)
+	{
+		InterGuideWidget = CreateWidget<UUserWidget>(GetWorld(), InterGuideClass);
+		if (InterGuideWidget)
+		{
+			InterGuideWidget->AddToViewport();
+			InterGuideWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
 	if (NPCPopupClass)
 	{
 		NPCPopupWidget = CreateWidget<UNPCPopup>(GetWorld(), NPCPopupClass);
@@ -118,6 +127,7 @@ void APotatoPlayerCharacter::BeginPlay()
             PauseMenuWidget->SetVisibility(ESlateVisibility::Hidden);
         }
     }
+
 }
 
 void APotatoPlayerCharacter::Tick(float DeltaTime)
@@ -664,24 +674,30 @@ void APotatoPlayerCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
 	bool ActorCheck = OtherActor && (OtherActor != this);
 	if (ActorCheck && OtherActor->GetName().Contains(TEXT("Barn")))
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("BP_Barn")));
 		UPotatoAnimalManagementComp* ManagementComp = OtherActor->FindComponentByClass<UPotatoAnimalManagementComp>();
 		if (ManagementComp)
 		{
 			AnimalPopupWidget->InitPopup(ManagementComp);
 		}
 		IsBarnMode = true;
+		if (InterGuideWidget && !InterGuideWidget->IsVisible())
+		{
+			InterGuideWidget->SetVisibility(ESlateVisibility::Visible);
+		}
 	}
 	if (ActorCheck && ( OtherActor->GetName().Contains(TEXT("LumberMill"))
 	   || OtherActor->GetName().Contains(TEXT("Mine")) )
 		)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("Barn")));
 		UPotatoNPCManagementComp* ManagementComp = OtherActor->FindComponentByClass<UPotatoNPCManagementComp>();
 		if (ManagementComp) {
 			NPCPopupWidget->InitPopup(ManagementComp);
 		}
 		IsNPCMode = true;
+		if (InterGuideWidget && !InterGuideWidget->IsVisible())
+		{
+			InterGuideWidget->SetVisibility(ESlateVisibility::Visible);
+		}
 	}
 }
 
@@ -701,6 +717,10 @@ void APotatoPlayerCharacter::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, A
 				PlayerController->SetInputMode(InputMode);
 			}
 		}
+		if (InterGuideWidget && InterGuideWidget->IsVisible())
+		{
+			InterGuideWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
 	}
 	if (OtherActor && (OtherActor->GetName().Contains(TEXT("LumberMill"))
 		|| OtherActor->GetName().Contains(TEXT("Mine")) ) 
@@ -717,6 +737,10 @@ void APotatoPlayerCharacter::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, A
 				FInputModeGameOnly InputMode;
 				PlayerController->SetInputMode(InputMode);
 			}
+		}
+		if (InterGuideWidget && InterGuideWidget->IsVisible())
+		{
+			InterGuideWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
 }
