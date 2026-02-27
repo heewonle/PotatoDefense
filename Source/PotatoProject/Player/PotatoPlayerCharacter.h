@@ -134,12 +134,11 @@ protected:
 private:
 	float TargetCameraDistance;
 	bool IsBuildingMode;
-
 	bool IsBarnMode;
 	bool IsNPCMode;
-	// Functions
 	float LastHitReactionTime = -10.0f;
 	//bool IsAmmoProduct;
+	FTimerHandle DeathTimerHandle;
 	
 	// Functions
     FTimerHandle RegenDelayTimerHandle;
@@ -156,6 +155,7 @@ public:
 	float GetCurrentHP() const { return CurrentHP; }
 	float GetMaxHP() const { return MaxHP; }
 	float GetNormalSpeed() const { return NormalSpeed; }
+	bool IsDead() const { return bIsDead; };
 
 	// Delegate Instances
 public:
@@ -219,4 +219,5 @@ protected:
 
 	UFUNCTION()
 	void OnDeath();
+	void OnDeathFinished();
 };

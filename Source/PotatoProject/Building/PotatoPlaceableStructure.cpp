@@ -2,6 +2,7 @@
 #include "PotatoStructureData.h"
 #include "Components/WidgetComponent.h"
 #include "UI/HealthBar.h"
+#include "Core/PotatoProductionComponent.h"
 
 APotatoPlaceableStructure::APotatoPlaceableStructure()
 {
@@ -18,6 +19,7 @@ APotatoPlaceableStructure::APotatoPlaceableStructure()
     HPBarWidgetComp->SetDrawAtDesiredSize(true);
     HPBarWidgetComp->SetPivot(FVector2D(0.5f, 0.0f));
     HPBarWidgetComp->SetVisibility(false); // 초기에는 숨김
+	ProductionComponent = CreateDefaultSubobject<UPotatoProductionComponent>(TEXT("ProductionComponent"));
 }
 
 void APotatoPlaceableStructure::BeginPlay()

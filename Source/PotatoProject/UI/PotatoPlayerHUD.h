@@ -22,6 +22,7 @@ class UPotatoWeaponComponent;
 class UPotatoWeaponData;
 class UPotatoDayNightCycle;
 class UPotatoDialogueWidget;
+class UPotatoStructureData;
 class UPotatoResourceManager;
 class UPotatoHitMarker;
 
@@ -64,6 +65,9 @@ public:
 	TObjectPtr<UTextBlock> ResourceLivestock;
 
 	// ---- 미니 자원 아이콘 행 (HorizontalBox_282) ----
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
+	TObjectPtr<UWidget> CostBox;
+	
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
 	TObjectPtr<UTextBlock> WoodAmount;
 
@@ -110,18 +114,32 @@ public:
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
 	TObjectPtr<UBorder> Border_0;
 
-	/** 건물 슬롯 Border 배열 (순서: LumberMill/Mine/Farm/Barn/Fence/Barrel/SpikeFence/Wagon/StoneFence) */
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
-	TObjectPtr<UBorder> Border_2; // 슬롯 0 – LumberMill
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_0; // 슬롯 0
 
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
-	TObjectPtr<UBorder> Border_3; // 슬롯 1 – Mine
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_1; // 슬롯 1
 
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
-	TObjectPtr<UBorder> Border_4; // 슬롯 2 – Farm
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_2; // 슬롯 2
 
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI")
-	TObjectPtr<UBorder> Border_5; // 슬롯 3 – Barn
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_3; // 슬롯 3
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_4; // 슬롯 4
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_5; // 슬롯 5
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_6; // 슬롯 6
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_7; // 슬롯 7
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|BuildSlots")
+	TObjectPtr<UBorder> BuildBorder_8; // 슬롯 8
 
 	// ---- 무기 선택 박스 ----
 	/** 무기 슬롯 Border 배열 (HorizontalBox_0 내부: 감자/옥수수/호박/당근) */
@@ -268,6 +286,12 @@ protected:
 	UFUNCTION()
 	void HandleNextDialogueInput();
 	
+	UFUNCTION()
+	void HandleBuildModeToggled(bool bIsBuildMode);
+	
+	UFUNCTION()
+	void HandleBuildSlotChanged(int32 SlotIndex, const UPotatoStructureData* SelectedData);
+	
 	void HandleWeaponChanged(const UPotatoWeaponData* NewWeaponData);
 	void HandleAmmoChanged(int32 CurrentAmmo, int32 ReserveAmmo);
     void HandleEnemyHit(bool bIsKill);
@@ -275,9 +299,6 @@ protected:
 private:
 	/** 시계 바늘 각도 갱신 */
 	void RefreshClockNeedle(float DeltaTime);
-
-	/** 빌드 모드 패널 표시/선택 슬롯 강조 갱신 */
-	void RefreshBuildModePanel();
 
 	/** 남은 시간 텍스트 갱신 */
 	void RefreshTimeText();

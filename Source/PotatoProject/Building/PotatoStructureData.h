@@ -45,9 +45,6 @@ public:
 	
 	// 스탯
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
-	int32 ConstructionCost = 10;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
 	bool bIsDestructible = true;
 	
 	/** 구조물의 최대 체력: bIsDestructible이 false인 경우 비활성화됨 */

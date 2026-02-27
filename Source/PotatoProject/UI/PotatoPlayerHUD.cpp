@@ -14,6 +14,7 @@
 #include "Core/PotatoResourceManager.h"
 #include "Core/PotatoGameMode.h"
 #include "Core/PotatoEnums.h"
+#include "Core/PotatoProductionComponent.h"
 #include "Building/BuildingSystemComponent.h"
 #include "Building/PotatoPlaceableStructure.h"
 #include "Building/PotatoStructureData.h"
@@ -40,7 +41,10 @@ void UPotatoPlayerHUD::NativeConstruct()
 	}
 
 	// BuildSlot Border 배열 초기화 (WBP 슬롯 순서와 동일)
-	BuildSlotBorders = {Border_2, Border_3, Border_4, Border_5};
+	BuildSlotBorders = {
+		BuildBorder_0, BuildBorder_1, BuildBorder_2, BuildBorder_3, BuildBorder_4, BuildBorder_5, BuildBorder_6,
+		BuildBorder_7, BuildBorder_8
+	};
 
 	// 플레이어 캐시
 	CachedPlayer = Cast<APotatoPlayerCharacter>(GetOwningPlayerPawn());
@@ -65,7 +69,7 @@ void UPotatoPlayerHUD::NativeConstruct()
 	// 초기 갱신
 	RefreshStorageHP();
 	RefreshClockNeedle(0.0f);
-	
+
 	// 크로스헤어 위젯 생성
 	if (CrosshairContainer)
 	{
@@ -87,15 +91,15 @@ void UPotatoPlayerHUD::NativeConstruct()
 		CreateAndAdd(CircleCrosshairClass, ECrosshairType::Circle);
 		CreateAndAdd(StaticCrosshairClass, ECrosshairType::Static);
 
-        if (HitMarkerClass)
-        {
-            HitMarkerInstance = CreateWidget<UPotatoHitMarker>(this, HitMarkerClass);
-            if (HitMarkerInstance)
-            {
-                CrosshairContainer->AddChild(HitMarkerInstance);
-                HitMarkerInstance->SetVisibility(ESlateVisibility::Hidden);
-            }
-        }
+		if (HitMarkerClass)
+		{
+			HitMarkerInstance = CreateWidget<UPotatoHitMarker>(this, HitMarkerClass);
+			if (HitMarkerInstance)
+			{
+				CrosshairContainer->AddChild(HitMarkerInstance);
+				HitMarkerInstance->SetVisibility(ESlateVisibility::Hidden);
+			}
+		}
 	}
 
 	// 델리게이트 바인딩
@@ -104,13 +108,13 @@ void UPotatoPlayerHUD::NativeConstruct()
 		// HP 바인딩
 		CachedPlayer->OnHPChanged.AddDynamic(this, &UPotatoPlayerHUD::HandleHPChanged);
 		HandleHPChanged(CachedPlayer->GetCurrentHP(), CachedPlayer->GetMaxHP());
-		
+
 		// Weapon 바인딩
 		if (UPotatoWeaponComponent* WeaponComp = CachedPlayer->FindComponentByClass<UPotatoWeaponComponent>())
 		{
 			WeaponComp->OnWeaponChanged.AddUObject(this, &UPotatoPlayerHUD::HandleWeaponChanged);
 			WeaponComp->OnAmmoChanged.AddUObject(this, &UPotatoPlayerHUD::HandleAmmoChanged);
-            WeaponComp->OnEnemyHit.AddUObject(this, &UPotatoPlayerHUD::HandleEnemyHit);
+			WeaponComp->OnEnemyHit.AddUObject(this, &UPotatoPlayerHUD::HandleEnemyHit);
 
 			if (WeaponComp->CurrentWeaponData)
 			{
@@ -118,7 +122,7 @@ void UPotatoPlayerHUD::NativeConstruct()
 				WeaponComp->BroadcastAmmoState();
 			}
 		}
-		
+
 		// Dialogue Widget 바인딩
 		CachedPlayer->OnNextDialoguePressed.AddDynamic(this, &UPotatoPlayerHUD::HandleNextDialogueInput);
 		if (DialogueWidget)
@@ -126,17 +130,26 @@ void UPotatoPlayerHUD::NativeConstruct()
 			DialogueWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
-	
+
 	// 자원 바인딩
 	UPotatoResourceManager* ResourceManager = GetWorld()->GetSubsystem<UPotatoResourceManager>();
 	if (ResourceManager)
 	{
 		ResourceManager->OnResourceChanged.AddDynamic(this, &UPotatoPlayerHUD::HandleResourceChanged);
-		
+
 		HandleResourceChanged(EResourceType::Wood, ResourceManager->GetWood());
 		HandleResourceChanged(EResourceType::Stone, ResourceManager->GetStone());
 		HandleResourceChanged(EResourceType::Crop, ResourceManager->GetCrop());
 		HandleResourceChanged(EResourceType::Livestock, ResourceManager->GetLivestock());
+	}
+
+	// Build Mode 바인딩
+	if (UBuildingSystemComponent* BuildComponent = GetBuildComp())
+	{
+		BuildComponent->OnBuildModeToggled.AddDynamic(this, &UPotatoPlayerHUD::HandleBuildModeToggled);
+		BuildComponent->OnBuildSlotChanged.AddDynamic(this, &UPotatoPlayerHUD::HandleBuildSlotChanged);
+
+		HandleBuildModeToggled(BuildComponent->bIsBuildMode);
 	}
 }
 
@@ -147,7 +160,6 @@ void UPotatoPlayerHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 	RefreshStorageHP();
 	RefreshClockNeedle(InDeltaTime);
 	RefreshTimeText();
-	RefreshBuildModePanel();
 }
 
 // ============================================================
@@ -222,10 +234,10 @@ void UPotatoPlayerHUD::PlayDialogue(FName RowName)
 		UE_LOG(LogTemp, Warning, TEXT("PlayDialogue failed: Missing DataTable or Widget"));
 		return;
 	}
-	
+
 	static const FString ContextString(TEXT("DialogueContext"));
-	FPotatoDialogueRow * Row = DialogueDataTable->FindRow<FPotatoDialogueRow>(RowName, ContextString);
-	
+	FPotatoDialogueRow* Row = DialogueDataTable->FindRow<FPotatoDialogueRow>(RowName, ContextString);
+
 	if (Row)
 	{
 		DialogueWidget->StartDialogue(Row);
@@ -258,13 +270,13 @@ void UPotatoPlayerHUD::HandleResourceChanged(EResourceType Type, int32 NewValue)
 	{
 		return;
 	}
-	
+
 	auto FormatResourceText = [&](int32 Amount, EResourceType InType) -> FText
 	{
 		const int32 Rate = ResourceManager->GetTotalProductionPerMinute(InType);
 		return FText::Format(NSLOCTEXT("HUD", "ResRate", "{0}(+{1}/min)"), Amount, Rate);
 	};
-	
+
 	FText NewText = FormatResourceText(NewValue, Type);
 	FText AmountText = FText::AsNumber(NewValue);
 
@@ -272,19 +284,15 @@ void UPotatoPlayerHUD::HandleResourceChanged(EResourceType Type, int32 NewValue)
 	{
 	case EResourceType::Wood:
 		if (ResourceWood) ResourceWood->SetText(NewText);
-		if (WoodAmount) WoodAmount->SetText(AmountText);
 		break;
 	case EResourceType::Stone:
 		if (ResourceStone) ResourceStone->SetText(NewText);
-		if (StoneAmount) StoneAmount->SetText(AmountText);
 		break;
 	case EResourceType::Crop:
 		if (ResourceCrop) ResourceCrop->SetText(NewText);
-		if (CropAmount) CropAmount->SetText(AmountText);
 		break;
 	case EResourceType::Livestock:
 		if (ResourceLivestock) ResourceLivestock->SetText(NewText);
-		if (LivestockAmount) LivestockAmount->SetText(AmountText);
 		break;
 	}
 }
@@ -294,6 +302,44 @@ void UPotatoPlayerHUD::HandleNextDialogueInput()
 	if (DialogueWidget && DialogueWidget->IsVisible())
 	{
 		DialogueWidget->AdvanceDialogue();
+	}
+}
+
+void UPotatoPlayerHUD::HandleBuildModeToggled(bool bIsBuildMode)
+{
+	ESlateVisibility NewVisibility = bIsBuildMode ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed;
+	if (Border_0)
+	{
+		Border_0->SetVisibility(NewVisibility);
+	}
+	if (CostBox)
+	{
+		CostBox->SetVisibility(NewVisibility);
+	}
+}
+
+void UPotatoPlayerHUD::HandleBuildSlotChanged(int32 SlotIndex, const UPotatoStructureData* SelectedData)
+{
+	for (int32 i = 0; i < BuildSlotBorders.Num(); ++i)
+	{
+		SetBorderColor(BuildSlotBorders[i], (i == SlotIndex) ? BuildSlotSelectedColor : BuildSlotDefaultColor);
+	}
+	
+	// CDO로 건설에 필요한 비용 가져오기
+	if (SelectedData && SelectedData->StructureClass)
+	{
+		APotatoPlaceableStructure* CDO = SelectedData->StructureClass->GetDefaultObject<APotatoPlaceableStructure>();
+		if (CDO)
+		{
+			UPotatoProductionComponent* ProductionComponent = CDO->GetComponentByClass<UPotatoProductionComponent>();
+			if (ProductionComponent)
+			{
+				if (WoodAmount) WoodAmount->SetText(FText::AsNumber(ProductionComponent->GetBuyCostWood()));
+				if (StoneAmount) StoneAmount->SetText(FText::AsNumber(ProductionComponent->GetBuyCostStone()));
+				if (CropAmount) CropAmount->SetText(FText::AsNumber(ProductionComponent->GetBuyCostCrop()));
+				if (LivestockAmount) LivestockAmount->SetText(FText::AsNumber(ProductionComponent->GetBuyCostLivestock()));
+			}
+		}
 	}
 }
 
@@ -335,7 +381,7 @@ void UPotatoPlayerHUD::HandleWeaponChanged(const UPotatoWeaponData* NewWeaponDat
 		CurrentColor.A = (i == WeaponIdx) ? WeaponSlotSelectedAlpha : WeaponSlotDefaultAlpha;
 		Border->SetBrushColor(CurrentColor);
 	}
-	
+
 	// 크로스헤어 전환 로직
 	ECrosshairType TargetType = NewWeaponData->CrosshairType;
 	for (auto& Instance : CrosshairIntances)
@@ -365,7 +411,7 @@ void UPotatoPlayerHUD::HandleAmmoChanged(int32 CurrentAmmo, int32 ReserveAmmo)
 	}
 	FString AmmoString = FString::Printf(TEXT("%d/%d (+%d)"), CurrentAmmo, MaxAmmoSize, ReserveAmmo);
 	Ammo->SetText(FText::FromString(AmmoString));
-	
+
 	if (MaxAmmoSize > 0)
 	{
 		float CurrentRatio = (float)CurrentAmmo / (float)MaxAmmoSize;
@@ -386,10 +432,10 @@ void UPotatoPlayerHUD::HandleAmmoChanged(int32 CurrentAmmo, int32 ReserveAmmo)
 
 void UPotatoPlayerHUD::HandleEnemyHit(bool bIsKill)
 {
-    if (HitMarkerInstance)
-    {
-        HitMarkerInstance->PlayHitMarker(bIsKill);
-    }
+	if (HitMarkerInstance)
+	{
+		HitMarkerInstance->PlayHitMarker(bIsKill);
+	}
 }
 
 // ============================================================
@@ -400,7 +446,7 @@ void UPotatoPlayerHUD::RefreshClockNeedle(float DeltaTime)
 {
 	if (!DayClockNeedle) return;
 
-    if (GetWorld()->IsPaused()) return; // 게임 일시정지 시 바늘 멈춤
+	if (GetWorld()->IsPaused()) return; // 게임 일시정지 시 바늘 멈춤
 
 	UPotatoDayNightCycle* DNC = GetWorld()->GetSubsystem<UPotatoDayNightCycle>();
 	if (!DNC || !DNC->IsSystemStarted()) return;
@@ -431,29 +477,6 @@ void UPotatoPlayerHUD::RefreshClockNeedle(float DeltaTime)
 	FWidgetTransform Transform = DayClockNeedle->GetRenderTransform();
 	Transform.Angle = TargetAngle;
 	DayClockNeedle->SetRenderTransform(Transform);
-}
-
-void UPotatoPlayerHUD::RefreshBuildModePanel()
-{
-	UBuildingSystemComponent* BuildComp = GetBuildComp();
-
-	const bool bInBuildMode = BuildComp && BuildComp->bIsBuildMode;
-
-	// 패널 표시 / 숨김
-	if (Border_0)
-	{
-		Border_0->SetVisibility(bInBuildMode ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
-	}
-
-	if (!bInBuildMode) return;
-
-	// 슬롯 강조
-	const int32 SelectedIdx = BuildComp->CurrentSlotIndex;
-	for (int32 i = 0; i < BuildSlotBorders.Num(); ++i)
-	{
-		SetBorderColor(BuildSlotBorders[i],
-		               (i == SelectedIdx) ? BuildSlotSelectedColor : BuildSlotDefaultColor);
-	}
 }
 
 void UPotatoPlayerHUD::RefreshTimeText()
