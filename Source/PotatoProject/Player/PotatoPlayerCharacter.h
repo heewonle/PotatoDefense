@@ -157,6 +157,8 @@ public:
 	float GetNormalSpeed() const { return NormalSpeed; }
 	bool IsDead() const { return bIsDead; };
 
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void CloseAllPopups();
 	// Delegate Instances
 public:
 	UPROPERTY(BlueprintAssignable, Category = "Events")

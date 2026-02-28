@@ -22,6 +22,8 @@ void UResultScreen::NativeConstruct()
 	{
 		Button_Continue->OnClicked.AddDynamic(this, &UResultScreen::OnContinueClicked);
 	}
+
+    SetKeyboardFocus();
 }
 
 void UResultScreen::InitScreen(
@@ -89,4 +91,15 @@ void UResultScreen::NativeDestruct()
     }
 
     Super::NativeDestruct();
+}
+
+FReply UResultScreen::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+    if (InKeyEvent.GetKey() == EKeys::Escape)
+    {
+        CloseScreen();
+        return FReply::Handled();
+    }
+
+    return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }

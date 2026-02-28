@@ -29,6 +29,8 @@ protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 
+    virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
 public:
 	/**
 	 * 결과 화면을 초기화합니다.

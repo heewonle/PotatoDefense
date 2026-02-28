@@ -610,10 +610,10 @@ void UPotatoWeaponComponent::FireProjectileWithBallistics(const FVector& TargetL
 
     FRotator LaunchRotation = FRotator::ZeroRotator;
 
-    float DebugLifeTime = 2.0f;
+    /*float DebugLifeTime = 2.0f;
     FColor DebugColor = bSuccess ? FColor::Green : FColor::Red;
 
-    DrawDebugLine(GetWorld(), CameraLoc, ActualTargetLocation, DebugColor, false, DebugLifeTime, 0, 1.5f);
+    DrawDebugLine(GetWorld(), CameraLoc, ActualTargetLocation, DebugColor, false, DebugLifeTime, 0, 1.5f);*/
 
     if (bSuccess)
     {
@@ -663,9 +663,15 @@ void UPotatoWeaponComponent::FireHitscan(const FVector& TargetLocation)
 		return;
 	}
 
+    // 시각적 피드백과 별개로 게임플레이의 경험을 위해 카메라 방향에서 트레이스도 계산한다
+    FVector CameraLoc;
+    FRotator CameraRot;
+    PlayerController->GetPlayerViewPoint(CameraLoc, CameraRot);
+
+    // Muzzle에서 Target까지의 기본 방향 계산 (시각적 피드백을 위해 총구 방향을 저장!)
 	FVector MuzzleLocation = GetMuzzleLocation();
-	// Muzzle에서 Target까지의 기본 방향 계산 (시각적 정확성을 위해 카메라에서 Target까지의 방향이 아님!)
-	FVector BaseDirection = (TargetLocation - MuzzleLocation).GetSafeNormal();
+	//FVector BaseDirection = (TargetLocation - MuzzleLocation).GetSafeNormal();
+    FVector BaseDirection = CameraRot.Vector(); // 카메라 방향 라인트레이스를 계산 - 게임 플레이 정확도
 
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(OwnerCharacter);
@@ -685,23 +691,42 @@ void UPotatoWeaponComponent::FireHitscan(const FVector& TargetLocation)
         FVector SpreadDirection = UKismetMathLibrary::RandomUnitVectorInConeInDegrees(
             BaseDirection, CurrentSpread);
 
-		FVector TraceEnd = MuzzleLocation + (SpreadDirection * CurrentWeaponData->EffectiveRange);
+
+        FVector EffectDirection = UKismetMathLibrary::RandomUnitVectorInConeInDegrees(
+            (TargetLocation - MuzzleLocation).GetSafeNormal(), CurrentSpread);
+
+		//FVector TraceEnd = MuzzleLocation + (SpreadDirection * CurrentWeaponData->EffectiveRange);
+        
+        // 실제 트레이스는 중앙에서 수행, 시각적 피드백은 총구에서 수행 - 게임플레이 정확도와 시각적 만족도의 균형을 위해
+        FVector TraceEnd = CameraLoc + (SpreadDirection * CurrentWeaponData->EffectiveRange);
 
 		FHitResult HitResult;
 
-		bool bHit = GetWorld()->LineTraceSingleByObjectType(HitResult, MuzzleLocation, TraceEnd, ObjectQueryParams,
-		                                                    QueryParams);
+		/*bool bHit = GetWorld()->LineTraceSingleByObjectType(HitResult, MuzzleLocation, TraceEnd, ObjectQueryParams,
+		                                                    QueryParams);*/
 
+        bool bHit = GetWorld()->LineTraceSingleByObjectType(
+            HitResult,
+            CameraLoc,   // ← 변경: MuzzleLocation -> CameraLoc : 게임플레이 정확도를 위해 카메라에서 트레이스 계산
+            TraceEnd,
+            ObjectQueryParams,
+            QueryParams
+        );
 		if (bHit)
 		{
 			AActor* HitActor = HitResult.GetActor();
 
 			if (HitActor && HitActor->ActorHasTag(TEXT("Monster")))
 			{
+                DrawDebugLine(GetWorld(), CameraLoc, HitResult.ImpactPoint,
+                    FColor::Red, false, 2.0f, 0, 1.5f);
 				UGameplayStatics::ApplyDamage(HitActor, CurrentWeaponData->BaseDamage, PlayerController,
 				                              CurrentWeaponActor, UDamageType::StaticClass());
-			}
-			SpawnHitscanVisual(HitResult, SpreadDirection);
+            }
+            DrawDebugLine(GetWorld(), CameraLoc, HitResult.ImpactPoint,
+                FColor::Green, false, 2.0f, 0, 1.5f);
+            //SpawnHitscanVisual(HitResult, SpreadDirection);
+            SpawnHitscanVisual(HitResult, EffectDirection); // 당근 각도는 카메라 방향이 아닌 총구에서 발사되는 방향으로 시각적 피드백을 준다
 		}
 	}
 }

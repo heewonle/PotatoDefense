@@ -107,11 +107,7 @@ void APotatoGameMode::StartDayPhase()
     if (PlayerCharacter) {
         PlayerCharacter->SetIsBuildingMode(true);
     }
-    if (MonsterSpawner)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, FString::Printf(TEXT("Stop Wave!")));
-        MonsterSpawner->NotifyTimeExpired();
-    }
+    
     if (AnimalController)
     {
         AnimalController->SetIsAnimalPosses(true);
@@ -127,18 +123,18 @@ void APotatoGameMode::StartWarningPhase()
         if (PC->PlayerHUDWidget)
         {
             PC->PlayerHUDWidget->ShowMessageWithDuration(
-                NSLOCTEXT("HUD", "EveningWarning", "밤이 찾아옵니다"), 3.0f, true);
+                NSLOCTEXT("HUD", "EveningWarning", "밤이 찾아옵니다..."), 3.0f, true);
         }
     }
 }
 
 void APotatoGameMode::StartNightPhase()
 {
-    // 취향껏 추가하십쇼
     OnNightPhase.Broadcast();
     if (PlayerCharacter)
     {
         PlayerCharacter->SetIsBuildingMode(false);
+        PlayerCharacter->CloseAllPopups(); // 밤 진입 시 모든 팝업 강제 닫기
     }
     if (MonsterSpawner)
     {
@@ -162,6 +158,27 @@ void APotatoGameMode::StartNightPhase()
 void APotatoGameMode::StartResultPhase()
 {
     OnResultPhase.Broadcast();
+    
+    if (APotatoPlayerController* PC = GetWorld()->GetFirstPlayerController<APotatoPlayerController>())
+    {
+        if (PC->PlayerHUDWidget)
+        {
+            PC->PlayerHUDWidget->ShowMessageWithDuration(
+                NSLOCTEXT("HUD", "DawnMessage", "날이 밝아옵니다!"),
+                3.0f,
+                true,
+                FSimpleDelegate::CreateLambda([this]()
+                {
+                    if (MonsterSpawner)
+                    {
+                        MonsterSpawner->NotifyTimeExpired();
+                    }
+
+                    OnShowResultPanel.Broadcast();
+                })
+            );
+        }
+    }
 }
 
 void APotatoGameMode::EndGame(bool IsGameClear, FText Message)
