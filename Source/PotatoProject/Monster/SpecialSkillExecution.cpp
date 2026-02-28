@@ -845,7 +845,11 @@ static void Exec_InstantAoE(USpecialSkillComponent* Comp, const FPotatoMonsterSp
 		{
 			if (!Comp->ConsumeHitOnce(V)) continue;
 		}
-
+		UE_LOG(LogTemp, Warning, TEXT("[AoE] Hit Victim=%s Class=%s Damage=%.1f Skill=%s"),
+			*GetNameSafe(V),
+			*GetNameSafe(V ? V->GetClass() : nullptr),
+			Damage,
+			*GetNameSafe(Owner));
 		ApplyDamage_Safe(V, Damage, Owner);
 	}
 }

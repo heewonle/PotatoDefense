@@ -1,4 +1,11 @@
 ﻿// PotatoMonsterProjectile.cpp
+// ✅ ExplodeRadius 기반으로 VFX(UNiagaraComponent) 스케일 자동 조정 버전
+//
+// - ExplodeRadius > 0 이면: VFX 스케일 = ExplodeRadius / VfxBaseRadiusUU
+// - ExplodeRadius <= 0 이면: 스케일 원복(1)
+// - InitSkillDot() 호출 시 즉시 반영 + BeginPlay에서도 한번 더 안전 반영
+//
+// 콘솔(선택): potato.ProjAOEDebug 2 켜면 반경 디버그 구도 같이 확인 가능(이전 디버그 버전과 호환)
 
 #include "PotatoMonsterProjectile.h"
 
@@ -17,6 +24,53 @@
 // Structure
 #include "Building/PotatoPlaceableStructure.h"
 #include "Building/PotatoStructureData.h"
+
+// Debug draw (optional)
+#include "DrawDebugHelpers.h"
+
+// ------------------------------
+// Debug CVar (optional)
+// ------------------------------
+static TAutoConsoleVariable<int32> CVarPotatoProjAOEDebug(
+	TEXT("potato.ProjAOEDebug"),
+	0,
+	TEXT("0=off, 1=log, 2=log+draw"),
+	ECVF_Cheat
+);
+
+static const TCHAR* NetModeToStr_Proj(UWorld* W)
+{
+	if (!W) return TEXT("NoWorld");
+	switch (W->GetNetMode())
+	{
+	case NM_Standalone:       return TEXT("Standalone");
+	case NM_Client:           return TEXT("Client");
+	case NM_ListenServer:     return TEXT("ListenServer");
+	case NM_DedicatedServer:  return TEXT("DedicatedServer");
+	default:                  return TEXT("Unknown");
+	}
+}
+
+// ------------------------------
+// ✅ VFX Auto Scale Tuning
+// ------------------------------
+// Niagara가 "월드 스케일"에 반응해서 커지는 타입이라는 가정.
+// 너의 VFX가 기본적으로 '반경 약 200uu' 정도로 보이게 제작되어 있다면 200을 유지.
+// 너무 작거나 크면 이 값만 조절하면 됨.
+static constexpr float kVfxBaseRadiusUU = 200.f;
+
+// 과도 확대/축소 방지
+static constexpr float kVfxMinScale = 0.2f;
+static constexpr float kVfxMaxScale = 20.f;
+
+// ExplodeRadius -> Uniform scale
+static FVector ExplodeRadiusToVfxScale(float ExplodeRadius)
+{
+	const float Base = FMath::Max(1.f, kVfxBaseRadiusUU);
+	const float Raw = ExplodeRadius / Base;
+	const float S = FMath::Clamp(Raw, kVfxMinScale, kVfxMaxScale);
+	return FVector(S);
+}
 
 APotatoMonsterProjectile::APotatoMonsterProjectile()
 {
@@ -53,6 +107,19 @@ void APotatoMonsterProjectile::BeginPlay()
 {
 	Super::BeginPlay();
 	SetLifeSpan(LifeSeconds);
+
+	// ✅ 안전: 혹시 스폰 직후 InitSkillDot이 늦게 오거나, BP에서 값이 세팅된 경우 대비
+	if (IsValid(VFX))
+	{
+		if (ExplodeRadius > 0.f)
+		{
+			VFX->SetWorldScale3D(ExplodeRadiusToVfxScale(ExplodeRadius));
+		}
+		else
+		{
+			VFX->SetWorldScale3D(FVector(1.f));
+		}
+	}
 }
 
 void APotatoMonsterProjectile::SetProjectileDamage_Implementation(float InDamage)
@@ -79,7 +146,26 @@ void APotatoMonsterProjectile::InitSkillDot(float InDotDps, float InDotDuration,
 	DotTickInterval = FMath::Max(0.01f, InDotTickInterval); // 0 방지
 	ExplodeRadius = FMath::Max(0.f, InExplodeRadius);
 
-	// 스킬 투사체는 기본 Damage를 안 써도 되지만, 혼용 가능하도록 그대로 둠
+	// ✅ 핵심: ExplodeRadius 기준으로 VFX 자동 스케일 조정
+	if (IsValid(VFX))
+	{
+		if (ExplodeRadius > 0.f)
+		{
+			const FVector S = ExplodeRadiusToVfxScale(ExplodeRadius);
+			VFX->SetWorldScale3D(S);
+
+			const int32 DebugLevel = CVarPotatoProjAOEDebug.GetValueOnGameThread();
+			if (DebugLevel >= 1)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[ProjAOE] VFX AutoScale Proj=%s ExplodeRadius=%.1f Base=%.1f Scale=(%.2f) NetMode=%s"),
+					*GetNameSafe(this), ExplodeRadius, kVfxBaseRadiusUU, S.X, NetModeToStr_Proj(GetWorld()));
+			}
+		}
+		else
+		{
+			VFX->SetWorldScale3D(FVector(1.f));
+		}
+	}
 }
 
 bool APotatoMonsterProjectile::IsWorldSafe() const
@@ -277,6 +363,12 @@ void APotatoMonsterProjectile::ExplodeApplyDot(const FVector& Origin)
 
 	const float R = FMath::Max(0.f, ExplodeRadius);
 	if (R <= 0.f) return;
+
+	const int32 DebugLevel = CVarPotatoProjAOEDebug.GetValueOnGameThread();
+	if (DebugLevel >= 2)
+	{
+		DrawDebugSphere(World, Origin, R, 24, FColor::Yellow, false, 1.5f, 0, 2.0f);
+	}
 
 	TArray<AActor*> Victims;
 
