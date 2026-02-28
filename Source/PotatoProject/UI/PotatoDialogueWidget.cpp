@@ -90,7 +90,7 @@ void UPotatoDialogueWidget::UpdateUI()
 		{
 			if (TObjectPtr<UTexture2D>* FoundTexture = SpeakerPortraits.Find(CurrentLine.Speaker))
 			{
-				SpeakerIcon->SetBrushFromTexture(*FoundTexture);
+				SpeakerIcon->SetBrushFromTexture(*FoundTexture, true);
 				SpeakerIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 			}
 			else
