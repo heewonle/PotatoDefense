@@ -16,6 +16,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDayPhase);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnNightPhase);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWarningPhase);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnResultPhase);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnShowResultPanel);
 
 UCLASS()
 class POTATOPROJECT_API APotatoGameMode : public AGameMode
@@ -82,6 +83,9 @@ public:
     UPROPERTY(BlueprintAssignable)
     FOnResultPhase OnResultPhase;
 
+    UPROPERTY(BlueprintAssignable)
+    FOnShowResultPanel OnShowResultPanel;
+    
 public:
     UFUNCTION(BlueprintCallable, Category = "DayNight")
     void StartDayPhase();

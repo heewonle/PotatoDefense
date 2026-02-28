@@ -72,4 +72,7 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "UI")
     void RegisterWarehouseHP(APotatoPlaceableStructure* Warehouse);
+
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void ShowHUDMessage(const FText& InText, float Duration, bool bPlayAnim);
 };

@@ -16,6 +16,7 @@
 #include "../UI/NPCPopup.h"
 #include "../Building/PotatoNPCManagementComp.h"
 #include "Combat/PotatoWeaponData.h"
+#include "Core/PotatoDayNightCycle.h"
 
 APotatoPlayerCharacter::APotatoPlayerCharacter()
 {
@@ -505,7 +506,20 @@ void APotatoPlayerCharacter::SetIsBuildingMode(bool BuildingMode)
 
 void APotatoPlayerCharacter::OnAmmoMode(const FInputActionValue& Value)
 {
-	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+    if (UPotatoDayNightCycle* DNC = GetWorld()->GetSubsystem<UPotatoDayNightCycle>())
+    {
+        if (DNC->GetCurrentPhase() == EDayPhase::Night)
+        {
+            // HUD 메시지 표시
+            if (APotatoPlayerController* PlayerController = Cast<APotatoPlayerController>(GetController()))
+            {
+                PlayerController->ShowHUDMessage(NSLOCTEXT("HUD", "NightAmmo", "밤에는 탄약을 교환할 수 없습니다"), 1.5f, true);
+                return;
+            }
+        }
+    }
+
+    APlayerController* PlayerController = Cast<APlayerController>(GetController());
 
 
 	if (AmmoPopupWidget && PlayerController)
@@ -678,6 +692,31 @@ float APotatoPlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const&
 		}
 	}
 	return ActualDamage;
+}
+
+void APotatoPlayerCharacter::CloseAllPopups()
+{
+    APlayerController* PC = Cast<APlayerController>(GetController());
+
+    auto ClosePopup = [&](UUserWidget* Widget)
+    {
+        if (Widget && Widget->IsVisible())
+        {
+            Widget->SetVisibility(ESlateVisibility::Hidden);
+        }
+    };
+
+    ClosePopup(AmmoPopupWidget);
+    ClosePopup(AnimalPopupWidget);
+    ClosePopup(NPCPopupWidget);
+
+    // 팝업이 하나라도 열려있었으면 마우스/입력 모드 복구
+    if (PC)
+    {
+        PC->bShowMouseCursor = false;
+        FInputModeGameOnly InputMode;
+        PC->SetInputMode(InputMode);
+    }
 }
 
 void APotatoPlayerCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,

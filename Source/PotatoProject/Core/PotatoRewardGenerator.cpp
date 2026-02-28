@@ -42,8 +42,8 @@ void APotatoRewardGenerator::BeginPlay()
         return;
     }
 
-    PotatoGameMode->OnResultPhase.AddDynamic(this, &APotatoRewardGenerator::OnResultPhaseAction);
-    UE_LOG(LogTemp, Log, TEXT("APotatoRewardGenerator::BeginPlay - Successfully initialized references and bound to OnResultPhase"));
+    PotatoGameMode->OnShowResultPanel.AddDynamic(this, &APotatoRewardGenerator::OnResultPhaseAction);
+    UE_LOG(LogTemp, Log, TEXT("APotatoRewardGenerator::BeginPlay - Successfully initialized references and bound to OnShowResultPanel"));
 
     UPotatoNPCRegistrySubsystem* RegistrySystem = World->GetSubsystem<UPotatoNPCRegistrySubsystem>();
     if (!RegistrySystem)
@@ -174,6 +174,9 @@ void APotatoRewardGenerator::ShowResultScreen(
     {
         ResultScreen->AddToViewport();
         PC->SetUIMode(true, ResultScreen);
+
+        // 키보드 입력(ESC 등)을 받으려면 위젯에 직접 포커스 설정
+        ResultScreen->SetKeyboardFocus();
     }
 
     // Day 페이즈가 시작되면 ResultScreen을 자동으로 닫음

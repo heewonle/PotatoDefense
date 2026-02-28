@@ -204,10 +204,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD|Clock")
 	float ClockNeedleMaxAngle = 80.0f;
 	
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD|HPBar")
+    float HPBarInterpSpeed = 5.0f;
+
 	// ================================================================
 	// Crosshair
 	// ================================================================
 protected:
+
 	UPROPERTY(EditDefaultsOnly, Category = "Crosshairs")
 	TSubclassOf<UPotatoCrosshairBase> ArcSpreadCrosshairClass; // 감자
 	
@@ -260,13 +264,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void ShowMessageWithDuration(const FText& InText, float Duration, bool bPlayAnim = false);
 
+	/**
+	 * Duration 후 OnFinished 콜백을 실행합니다. (ResultPhase 등 순서 제어용)
+	 */
+	void ShowMessageWithDuration(const FText& InText, float Duration, bool bPlayAnim, FSimpleDelegate OnFinished);
+
 	/** 메시지를 즉시 숨기고 타이머/애니메이션을 정리합니다. */
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void HideMessageText();
 
 	/** 창고 HP 바를 수동으로 갱신합니다. (Tick에서 자동 갱신되지만 즉각 호출도 가능) */
 	UFUNCTION(BlueprintCallable, Category = "HUD")
-	void RefreshStorageHP();
+	void RefreshStorageHP(float DeltaTime = 0.0f);
 	
 	UFUNCTION(BlueprintCallable, Category = "Dialogue")
 	void PlayDialogue(FName RowName);
@@ -323,4 +332,6 @@ private:
 	float SmoothElapsedTime = -1.f;
 
 	FTimerHandle MessageHideTimer;
+
+    float CurrentHPBarPercent = 1.0f;
 };

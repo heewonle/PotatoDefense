@@ -157,7 +157,7 @@ void UPotatoPlayerHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
-	RefreshStorageHP();
+	RefreshStorageHP(InDeltaTime);
 	RefreshClockNeedle(InDeltaTime);
 	RefreshTimeText();
 }
@@ -177,17 +177,33 @@ void UPotatoPlayerHUD::SetMessageText(const FText& InText, bool bVisible)
 
 void UPotatoPlayerHUD::ShowMessageWithDuration(const FText& InText, float Duration, bool bPlayAnim)
 {
+	ShowMessageWithDuration(InText, Duration, bPlayAnim, FSimpleDelegate());
+}
+
+void UPotatoPlayerHUD::ShowMessageWithDuration(const FText& InText, float Duration, bool bPlayAnim, FSimpleDelegate OnFinished)
+{
 	SetMessageText(InText, true);
 
 	if (bPlayAnim && ShowMessageText)
 	{
-		PlayAnimation(ShowMessageText, 0.0f, 0, EUMGSequencePlayMode::Forward, 1.0f); // 0 = 루프
+		PlayAnimation(ShowMessageText, 0.0f, 0, EUMGSequencePlayMode::Forward, 1.0f);
 	}
 
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(MessageHideTimer);
-		World->GetTimerManager().SetTimer(MessageHideTimer, this, &UPotatoPlayerHUD::HideMessageText, Duration, false);
+
+		FTimerDelegate Delegate;
+		Delegate.BindLambda([this, OnFinished]()
+		{
+			HideMessageText();
+			if (OnFinished.IsBound())
+			{
+				OnFinished.Execute();
+			}
+		});
+
+		World->GetTimerManager().SetTimer(MessageHideTimer, Delegate, Duration, false);
 	}
 }
 
@@ -204,7 +220,7 @@ void UPotatoPlayerHUD::HideMessageText()
 	}
 }
 
-void UPotatoPlayerHUD::RefreshStorageHP()
+void UPotatoPlayerHUD::RefreshStorageHP(float DeltaTime)
 {
 	if (!StorageHPBar) return;
 
@@ -220,11 +236,20 @@ void UPotatoPlayerHUD::RefreshStorageHP()
 	if (!WarehouseStructure) return;
 
 	const UPotatoStructureData* Data = WarehouseStructure->StructureData;
-	if (!Data) return;
+	if (!Data || Data->MaxHealth <= 0.f) return;
 
-	const float MaxHP = Data->MaxHealth;
-	const float CurHP = WarehouseStructure->CurrentHealth;
-	StorageHPBar->SetPercent((MaxHP > 0.f) ? FMath::Clamp(CurHP / MaxHP, 0.f, 1.f) : 0.f);
+    const float TargetPercent = FMath::Clamp(WarehouseStructure->CurrentHealth / Data->MaxHealth, 0.f, 1.f);
+
+    if (DeltaTime > 0.f)
+    {
+        CurrentHPBarPercent = FMath::FInterpTo(CurrentHPBarPercent, TargetPercent, DeltaTime, HPBarInterpSpeed);
+    }
+    else 
+    {
+        CurrentHPBarPercent = TargetPercent; // DeltaTime == 0 , 즉시 동기화 (BeginPlay 초기화용)
+    }
+
+    StorageHPBar->SetPercent(CurrentHPBarPercent);
 }
 
 void UPotatoPlayerHUD::PlayDialogue(FName RowName)

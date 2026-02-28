@@ -2,6 +2,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "Blueprint/UserWidget.h"
 #include "Building/PotatoPlaceableStructure.h"
+#include "UI/PotatoPlayerHUD.h"
 
 APotatoPlayerController::APotatoPlayerController()
 	: InputMappingContext(nullptr),
@@ -58,4 +59,12 @@ void APotatoPlayerController::SetUIMode(bool bEnable, UUserWidget* FocusWidget)
 void APotatoPlayerController::RegisterWarehouseHP(APotatoPlaceableStructure* Warehouse)
 {
     WarehouseStructure = Warehouse;
+}
+
+void APotatoPlayerController::ShowHUDMessage(const FText& InText, float Duration, bool bPlayAnim)
+{
+    if (PlayerHUDWidget)
+    {
+        PlayerHUDWidget->ShowMessageWithDuration(InText, Duration, bPlayAnim);
+    }
 }
