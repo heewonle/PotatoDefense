@@ -1,9 +1,13 @@
-﻿#include "PotatoFXUtils.h"
+﻿// Source/PotatoProject/FXUtils/PotatoFXUtils.cpp
+
+#include "PotatoFXUtils.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Character.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/CapsuleComponent.h"
+
 #include "Sound/SoundBase.h"
 #include "Sound/SoundAttenuation.h"
 #include "Sound/SoundConcurrency.h"
@@ -16,10 +20,7 @@
 #include "NiagaraComponent.h"
 #include "Particles/ParticleSystem.h"
 
-#include "Monster/PotatoMonster.h"
-// 네 프로젝트 슬롯 정의 헤더(경로는 네 프로젝트에 맞춰 조정)
-#include "Components/CapsuleComponent.h"
-#include "Monster/PotatoMonsterSpecialSkillPresetRow.h" // FPotatoSkillVFXSlot / FPotatoSkillSFXSlot 가 여기 있다고 가정
+#include "Monster/PotatoMonsterSpecialSkillPresetRow.h" // FPotatoSkillVFXSlot / FPotatoSkillSFXSlot
 #include "Monster/SpecialSkillComponent.h"              // USpecialSkillComponent
 
 // ------------------------------
@@ -47,11 +48,13 @@ static bool PassGlobalBudgetImpl(float Now, float WindowSec, int32 MaxCount, TAr
 {
 	if (WindowSec <= 0.f || MaxCount <= 0) return true;
 
+	// time rewind 보호
 	if (Times.Num() > 0 && Now + 0.01f < Times.Last())
 	{
 		Times.Reset();
 	}
 
+	// window 밖 제거
 	for (int32 i = Times.Num() - 1; i >= 0; --i)
 	{
 		if (Now - Times[i] > WindowSec)
@@ -83,7 +86,7 @@ static bool IsFiniteScale3(const FVector& S)
 }
 
 // ------------------------------
-// Skill SFX Burst Gate (Owner+Sound)
+// Skill SFX Burst Gate (Owner+Sound) - 유지(필요 최소)
 // ------------------------------
 static double GSkillSfxGateWindowSec = 0.06;
 static int32  GSkillSfxGateMaxPlaysPerWindowPerOwner = 2;
@@ -190,7 +193,7 @@ namespace PotatoFX
 	}
 
 	// ------------------------------------------------------------
-	// Net mode string
+	// Net mode string (유지: 다른 로그/디버깅에서 쓰는 경우 대비)
 	// ------------------------------------------------------------
 	const TCHAR* NetModeToCStr(const UWorld* World)
 	{
@@ -206,7 +209,7 @@ namespace PotatoFX
 	}
 
 	// ------------------------------------------------------------
-	// SFX spawn (기존)
+	// 기존 일반 슬롯 SFX (링커 에러 방지용)
 	// ------------------------------------------------------------
 	void SpawnSFXSlotAtLocation(const UObject* WorldContextObject, const FPotatoSFXSlot& Slot, const FVector& Location)
 	{
@@ -214,7 +217,7 @@ namespace PotatoFX
 		if (!Slot.Sound) return;
 
 		const float Volume = FMath::Max(0.f, Slot.VolumeMultiplier);
-		const float Pitch = FMath::Max(0.01f, Slot.PitchMultiplier);
+		const float Pitch  = FMath::Max(0.01f, Slot.PitchMultiplier);
 
 		UGameplayStatics::SpawnSoundAtLocation(
 			WorldContextObject,
@@ -231,39 +234,7 @@ namespace PotatoFX
 	}
 
 	// ------------------------------------------------------------
-	// VFX auto scale (기존)
-	// ------------------------------------------------------------
-	float PotatoFX::ComputeVFXSlotAutoScaleScalar(AActor* OwnerActor, const FPotatoVFXSlot& Slot)
-	{
-		if (!OwnerActor) return 1.f;
-		if (!Slot.bAutoScale) return 1.f;
-
-		float Ext = 0.f;
-
-		if (USkeletalMeshComponent* Mesh = OwnerActor->FindComponentByClass<USkeletalMeshComponent>())
-		{
-			const FVector E = Mesh->Bounds.BoxExtent;
-			Ext = Slot.bUseMaxExtentXYZ ? FMath::Max3(E.X, E.Y, E.Z) : E.Z;
-		}
-		else if (UCapsuleComponent* Cap = OwnerActor->FindComponentByClass<UCapsuleComponent>())
-		{
-			Ext = Cap->GetScaledCapsuleHalfHeight();
-		}
-		else
-		{
-			return 1.f;
-		}
-
-		const float Ref = FMath::Max(1.f, Slot.RefExtent);
-		const float S = Ext / Ref;
-
-		const float MinS = FMath::Max(0.01f, Slot.AutoScaleMin);
-		const float MaxS = FMath::Max(MinS, Slot.AutoScaleMax);
-
-		return FMath::Clamp(S, MinS, MaxS);
-	}
-	// ------------------------------------------------------------
-	// VFX spawn (기존)
+	// 기존 일반 슬롯 VFX (링커 에러 방지용)
 	// ------------------------------------------------------------
 	void SpawnVFXSlotAtLocation(const UObject* WorldContextObject, const FPotatoVFXSlot& Slot,
 		const FVector& LocationWS, const FRotator& RotationWS, const FVector& FinalScale)
@@ -303,7 +274,40 @@ namespace PotatoFX
 	}
 
 	// ------------------------------------------------------------
-	// Skill VFX (NEW) : Attached 우선, 아니면 AtLocation
+	// 기존 일반 슬롯 VFX AutoScale (링커 에러 방지용)
+	// ------------------------------------------------------------
+	float ComputeVFXSlotAutoScaleScalar(AActor* OwnerActor, const FPotatoVFXSlot& Slot)
+	{
+		if (!OwnerActor) return 1.f;
+		if (!Slot.bAutoScale) return 1.f;
+
+		float Ext = 0.f;
+
+		if (USkeletalMeshComponent* Mesh = OwnerActor->FindComponentByClass<USkeletalMeshComponent>())
+		{
+			const FVector E = Mesh->Bounds.BoxExtent;
+			Ext = Slot.bUseMaxExtentXYZ ? FMath::Max3(E.X, E.Y, E.Z) : E.Z;
+		}
+		else if (UCapsuleComponent* Cap = OwnerActor->FindComponentByClass<UCapsuleComponent>())
+		{
+			Ext = Cap->GetScaledCapsuleHalfHeight();
+		}
+		else
+		{
+			return 1.f;
+		}
+
+		const float Ref = FMath::Max(1.f, Slot.RefExtent);
+		const float S = Ext / Ref;
+
+		const float MinS = FMath::Max(0.01f, Slot.AutoScaleMin);
+		const float MaxS = FMath::Max(MinS, Slot.AutoScaleMax);
+
+		return FMath::Clamp(S, MinS, MaxS);
+	}
+
+	// ------------------------------------------------------------
+	// Skill VFX (원본 유지)
 	// ------------------------------------------------------------
 	void PlaySkillVFXSlot(USpecialSkillComponent* Comp, const FPotatoSkillVFXSlot& Slot,
 		const FVector& Origin, const FRotator& Facing)
@@ -390,7 +394,9 @@ namespace PotatoFX
 	}
 
 	// ------------------------------------------------------------
-	// Skill SFX (NEW) : 거리 + burst + atten/concurrency
+	// Skill SFX (심플: Execute 전용으로 쓰기 좋게 "조용히" 처리)
+	// - Debug/Log 없음
+	// - SoftPtr 로딩 정책은 헤더의 TryGetOrLoadSync에 따름
 	// ------------------------------------------------------------
 	void PlaySkillSFXSlot(USpecialSkillComponent* Comp, const FPotatoSkillSFXSlot& Slot,
 		const FVector& Origin, float MaxFxDist, bool bImportant)
@@ -405,24 +411,22 @@ namespace PotatoFX
 
 		if (World->GetNetMode() == NM_DedicatedServer) return;
 
-		if (!PassesFxDistanceGate(World, Origin, MaxFxDist))
-		{
-			return;
-		}
+		// Execute-only 운용이라도, 슬롯이 비었으면 그냥 조용히 스킵
+		if (!Slot.HasAny() || Slot.Sound.IsNull()) return;
+
+		if (!PassesFxDistanceGate(World, Origin, MaxFxDist)) return;
 
 		USoundBase* S = TryGetOrLoadSync(Slot.Sound);
 		if (!S) return;
 
-		if (!PassesSfxBurstGate(World, Owner, S, bImportant))
-		{
-			return;
-		}
+		if (!PassesSfxBurstGate(World, Owner, S, bImportant)) return;
 
-		USoundAttenuation* Atten = TryGetOrLoadSync(Slot.Attenuation);
-		USoundConcurrency* Con   = TryGetOrLoadSync(Slot.Concurrency);
+		USoundAttenuation* Atten = Slot.Attenuation.IsNull() ? nullptr : TryGetOrLoadSync(Slot.Attenuation);
+		USoundConcurrency* Con   = Slot.Concurrency.IsNull() ? nullptr : TryGetOrLoadSync(Slot.Concurrency);
 
-		const float Pitch = FMath::Clamp(Slot.PitchMultiplier + FMath::FRandRange(-0.03f, 0.03f), 0.5f, 2.0f);
+		const float Pitch = FMath::Clamp(Slot.PitchMultiplier, 0.5f, 2.0f);
 		const float Vol   = FMath::Max(0.f, Slot.VolumeMultiplier);
+		if (Vol <= 0.f) return;
 
 		UGameplayStatics::PlaySoundAtLocation(World, S, Origin, Vol, Pitch, 0.f, Atten, Con);
 	}

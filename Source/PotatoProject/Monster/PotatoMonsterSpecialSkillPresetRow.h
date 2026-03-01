@@ -88,24 +88,57 @@ struct POTATOPROJECT_API FPotatoSkillPresentation
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Telegraph")
-	FPotatoSkillVFXSlot TelegraphVFX;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Telegraph")
-	FPotatoSkillSFXSlot TelegraphSFX;
+	// ============================================================
+	// Execute-only mode (default)
+	// - bEnablePhases = false (default) 이면
+	//   Telegraph/Cast/End 슬롯은 에디터에서 숨김(= 사실상 막힘)
+	// - 필요해지면 true로 켜서 단계별 프레젠테이션을 다시 사용 가능
+	// ============================================================
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Cast")
-	FPotatoSkillVFXSlot CastVFX;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Cast")
-	FPotatoSkillSFXSlot CastSFX;
+	// (에디터용) 단계별 슬롯 잠금 해제 토글
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Advanced", meta=(InlineEditConditionToggle))
+	bool bEnablePhases = false;
 
+	// -------------------------
+	// Execute (항상 사용)
+	// -------------------------
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Execute")
 	FPotatoSkillVFXSlot ExecuteVFX;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Execute")
 	FPotatoSkillSFXSlot ExecuteSFX;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|End")
+	// -------------------------
+	// Telegraph (잠금)
+	// -------------------------
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Telegraph",
+		meta=(EditCondition="bEnablePhases", EditConditionHides))
+	FPotatoSkillVFXSlot TelegraphVFX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Telegraph",
+		meta=(EditCondition="bEnablePhases", EditConditionHides))
+	FPotatoSkillSFXSlot TelegraphSFX;
+
+	// -------------------------
+	// Cast (잠금)
+	// -------------------------
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Cast",
+		meta=(EditCondition="bEnablePhases", EditConditionHides))
+	FPotatoSkillVFXSlot CastVFX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|Cast",
+		meta=(EditCondition="bEnablePhases", EditConditionHides))
+	FPotatoSkillSFXSlot CastSFX;
+
+	// -------------------------
+	// End (잠금)
+	// -------------------------
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|End",
+		meta=(EditCondition="bEnablePhases", EditConditionHides))
 	FPotatoSkillVFXSlot EndVFX;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|End")
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Presentation|End",
+		meta=(EditCondition="bEnablePhases", EditConditionHides))
 	FPotatoSkillSFXSlot EndSFX;
 };
 

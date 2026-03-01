@@ -339,4 +339,7 @@ public:
 
 	UPROPERTY()
 	TWeakObjectPtr<APotatoMonsterSpawner> SpawnerRef;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Collision")
+	UCapsuleComponent* HitCapsule = nullptr;
 };

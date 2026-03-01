@@ -1,10 +1,16 @@
-﻿// PotatoMonster.cpp (BUILDABLE - HPBar crash guard + Safe preset/apply + AI ensure)
+﻿// PotatoMonster.cpp (BUILDABLE - HPBar crash guard + Safe preset/apply + AI ensure + HitCapsule for wider hits)
 //
 // 핵심:
 // - BeginPlay 이전 RefreshHPBar/UpdateHPBarLocation 차단
 // - BeginPlay에서 HPBarWidgetComp->InitWidget()로 위젯 생성 보장
 // - ApplyPresetsOnce는 "끝에서만" UI 갱신
 // - OnPossess/Spawn 타이밍에서도 안전하게 돌아가도록 가드 강화
+//
+// + 추가(이번 반영):
+// - 무기/투사체/폭발이 ECC_Pawn ObjectQuery로 판정하는 구조를 그대로 두고,
+//   Monster에서만 "피격 전용 HitCapsule"을 크게 만들어 맞추기 쉽게 함
+// - HitCapsule: QueryOnly + ObjectType=Pawn + Nav 영향 X
+// - Root 캡슐(이동/NavAgent)은 건드리지 않음(=이동 막힘/경로 영향 최소화)
 //
 
 #include "PotatoMonster.h"
@@ -42,6 +48,15 @@
 // (Death) Ragdoll fallback은 Monster.cpp 고유 정책이므로 유지
 // ------------------------------------------------------------
 
+// ============================================================
+// (LOCAL) HitCapsule tuning
+// ============================================================
+// - "몬스터만 수정" 조건이라 UPROPERTY를 추가로 늘리지 않고,
+//   기본값은 여기 로컬 상수로 둠(원하면 나중에 헤더에 UPROPERTY로 빼도 됨)
+static float G_HitCapsule_MinRadius     = 30.f;
+static float G_HitCapsule_MaxRadius     = 220.f;
+static float G_HitCapsule_MinHalfHeight = 50.f;
+static float G_HitCapsule_MaxHalfHeight = 320.f;
 
 // ============================================================
 // UI
@@ -117,11 +132,104 @@ APotatoMonster::APotatoMonster()
 	}
 
 	SplitComp = CreateDefaultSubobject<UPotatoSplitComponent>(TEXT("SplitComp"));
+
+	// ============================================================
+	// ✅ HitCapsule (피격 전용)
+	// 목표:
+	// - 히트스캔/폭발(ObjectQuery ECC_Pawn)에 잘 잡히게 "Pawn ObjectType" 유지
+	// - Projectile은 보통 Pawn에 Overlap로 설계되는 경우가 많으니
+	//   HitCapsule에서 Pawn 응답은 Overlap로 두어 OnOverlap가 안정적으로 뜨게
+	// - QueryOnly + Nav 영향 X 유지
+	// ============================================================
+	HitCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("HitCapsule"));
+	if (HitCapsule)
+	{
+		HitCapsule->SetupAttachment(RootComponent);
+
+		// Nav 영향 차단
+		HitCapsule->SetCanEverAffectNavigation(false);
+
+		// 물리로 막지 않고 "쿼리/이벤트"만
+		HitCapsule->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
+		// ECC_Pawn ObjectQuery(폭발/히트스캔)에 잡히도록
+		HitCapsule->SetCollisionObjectType(ECC_Pawn);
+
+		// 기본은 Ignore로 두고 필요한 것만 켜는 방식이 예측 가능함
+		HitCapsule->SetCollisionResponseToAllChannels(ECR_Ignore);
+
+		// ✅ 핵심: Pawn은 Overlap (Projectile OnOverlap 안정화)
+		HitCapsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+
+		// 히트스캔이 ObjectQuery(ECC_Pawn)로 쏘는 경우엔 위만으로도 충분
+		// 혹시 다른 트레이스(Visibility/Camera)도 쓰면 아래 두 줄 켜도 됨(선택)
+		HitCapsule->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+		HitCapsule->SetCollisionResponseToChannel(ECC_Camera, ECR_Block);
+
+		// 오버랩 이벤트를 실제로 받게 켬 (상대 Projectile이 OnOverlap 바인딩 중)
+		HitCapsule->SetGenerateOverlapEvents(true);
+
+		// 임시 기본값(실제 크기는 BeginPlay에서 Mesh Bounds로 보정)
+		HitCapsule->InitCapsuleSize(60.f, 90.f);
+		HitCapsule->SetRelativeLocation(FVector(0.f, 0.f, 0.f));
+	}
+	if (HitCapsule)
+	{
+		// Projectile(대부분 WorldDynamic)을 큰 캡슐이 받게
+		HitCapsule->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+		HitCapsule->SetCollisionResponseToChannel(ECC_PhysicsBody, ECR_Overlap);
+
+		// Overlap 이벤트가 나게
+		HitCapsule->SetGenerateOverlapEvents(true);
+	}
+
+	if (UCapsuleComponent* RootCap = GetCapsuleComponent())
+	{
+		// ✅ 핵심: 작은 루트 캡슐이 Projectile을 잡지 않도록 무시
+		RootCap->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
+		RootCap->SetCollisionResponseToChannel(ECC_PhysicsBody, ECR_Ignore);
+	}
 }
 
 void APotatoMonster::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// ============================================================
+	// ✅ HitCapsule 크기 보정 (Mesh Bounds 기반)
+	// - 몬스터마다 메시 크기가 달라도 "적당히" 맞는 피격 범위를 자동으로 잡음
+	// - Root 캡슐은 건드리지 않음 (Nav/이동 영향 최소화)
+	// ============================================================
+	if (HitCapsule)
+	{
+		float R = 60.f;
+		float HH = 90.f;
+		float Z = 0.f;
+
+		if (USkeletalMeshComponent* MeshComp  = GetMesh())
+		{
+			// Mesh Bounds는 BeginPlay 이후 안정적
+			const FVector Ext = MeshComp ->Bounds.BoxExtent;
+
+			// XY 중 큰 값 = 대략적인 반경
+			R = FMath::Max(Ext.X, Ext.Y);
+
+			// Z 기준(키 높이 느낌)
+			HH = FMath::Max(Ext.Z, R + 5.f);
+
+			// 너무 과한 바닥 히트 방지 등 필요하면 조정
+			Z = 0.f;
+
+			// Nav 영향 확실히 차단(혹시 BP에서 건드렸을 때 방어)
+			MeshComp ->SetCanEverAffectNavigation(false);
+		}
+
+		R  = FMath::Clamp(R,  G_HitCapsule_MinRadius,     G_HitCapsule_MaxRadius);
+		HH = FMath::Clamp(HH, G_HitCapsule_MinHalfHeight, G_HitCapsule_MaxHalfHeight);
+
+		HitCapsule->SetCapsuleSize(R, HH, true);
+		HitCapsule->SetRelativeLocation(FVector(0.f, 0.f, Z));
+	}
 
 	// 위젯 생성 보장 (GetUserWidgetObject()가 null인 케이스 방지)
 	if (HPBarWidgetComp)
