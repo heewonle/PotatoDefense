@@ -45,6 +45,11 @@ void UPotatoPlayerHUD::NativeConstruct()
 		BuildBorder_0, BuildBorder_1, BuildBorder_2, BuildBorder_3, BuildBorder_4, BuildBorder_5, BuildBorder_6,
 		BuildBorder_7, BuildBorder_8
 	};
+	
+	// WeaponSlot Border 배열 초기화
+	WeaponSlotBorders = {
+		WeaponBorder_0, WeaponBorder_1, WeaponBorder_2, WeaponBorder_3
+	};
 
 	// 플레이어 캐시
 	CachedPlayer = Cast<APotatoPlayerCharacter>(GetOwningPlayerPawn());
@@ -273,6 +278,24 @@ void UPotatoPlayerHUD::PlayDialogue(FName RowName)
 	}
 }
 
+void UPotatoPlayerHUD::SetCinematicMode(bool bInCinematicMode)
+{
+	const ESlateVisibility TargetVisibility = bInCinematicMode ? ESlateVisibility::Hidden : ESlateVisibility::SelfHitTestInvisible;
+	const int32 ChildCount = RootCanvas->GetChildrenCount();
+	
+	for (int32 i = 0; i < ChildCount; ++i)
+	{
+		UWidget* ChildWidget = RootCanvas->GetChildAt(i);
+
+		if (!ChildWidget)
+		{
+			continue;
+		}
+		
+		ChildWidget->SetVisibility(TargetVisibility);
+	}
+}
+
 // ============================================================
 // Event Handler
 // ============================================================
@@ -341,6 +364,10 @@ void UPotatoPlayerHUD::HandleBuildModeToggled(bool bIsBuildMode)
 	{
 		CostBox->SetVisibility(NewVisibility);
 	}
+	if (BuildModeKeyInfo)
+	{
+		BuildModeKeyInfo->SetVisibility(NewVisibility);
+	}
 }
 
 void UPotatoPlayerHUD::HandleBuildSlotChanged(int32 SlotIndex, const UPotatoStructureData* SelectedData)
@@ -382,21 +409,14 @@ void UPotatoPlayerHUD::HandleWeaponChanged(const UPotatoWeaponData* NewWeaponDat
 		return;
 	}
 
-	// 빌드 모드 중에는 건물 슬롯이 동일 Border를 점유하므로 무기 강조를 적용하지 않습니다.
-	UBuildingSystemComponent* BuildComp = GetBuildComp();
-	if (BuildComp && BuildComp->bIsBuildMode)
-	{
-		return;
-	}
-
 	const int32 WeaponIdx = WeaponComp->CurrentWeaponIndex;
 
 	// WBP에서 각 Border의 배경색 RGB는 이미 칠해져 있습니다 (감자=황색, 옥수수=녹색 등).
 	// 여기서는 알파 값만 조정하여 선택/비선택 상태를 표현합니다.
 	// GetBrushColor()로 현재 색을 읽고, A만 덮어써서 다시 SetBrushColor()합니다.
-	for (int32 i = 0; i < BuildSlotBorders.Num(); ++i)
+	for (int32 i = 0; i < WeaponSlotBorders.Num(); ++i)
 	{
-		UBorder* Border = BuildSlotBorders[i];
+		UBorder* Border = WeaponSlotBorders[i];
 		if (!Border)
 		{
 			continue;
