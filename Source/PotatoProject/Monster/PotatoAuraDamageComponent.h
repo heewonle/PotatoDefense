@@ -5,11 +5,8 @@
 #include "PotatoAuraDamageComponent.generated.h"
 
 class USphereComponent;
+class UDamageType;
 
-/**
- * 오버랩(예: Player 태그) 동안 지속 데미지 주는 오라 컴포넌트
- * - 선인장에 붙이면 “가시 데미지” 구현 끝
- */
 UCLASS(ClassGroup=(Potato), meta=(BlueprintSpawnableComponent))
 class POTATOPROJECT_API UPotatoAuraDamageComponent : public UActorComponent
 {
@@ -18,51 +15,59 @@ class POTATOPROJECT_API UPotatoAuraDamageComponent : public UActorComponent
 public:
 	UPotatoAuraDamageComponent();
 
-	/** 반경/데미지 세팅(원하면 BP에서 직접 세팅해도 됨) */
-	UFUNCTION(BlueprintCallable, Category="Potato|Aura")
+	// 런타임 설정 (스폰 시/프리셋 적용 후 호출 추천)
+	UFUNCTION(BlueprintCallable, Category="Potato|AuraDamage")
 	void Configure(float InRadius, float InDps, float InTickInterval);
-
-	/** 태그 필터 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Aura")
-	FName RequiredTargetTag = TEXT("Player");
-
-	/** 초당 데미지 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Aura")
-	float Dps = 5.f;
-
-	/** 틱 간격 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Aura")
-	float TickInterval = 0.2f;
-
-	/** 오라 반경 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Aura")
-	float Radius = 120.f;
-
-	/** DamageType */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Aura")
-	TSubclassOf<UDamageType> DamageTypeClass;
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-private:
+protected:
+	UFUNCTION()
 	void HandleBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	UFUNCTION()
 	void HandleEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	void TickAura();
-
 	bool IsValidTarget(AActor* A) const;
 
+public:
+	// ===== Defaults (에디터에서 선인장만 튜닝 가능하게) =====
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Potato|AuraDamage", meta=(ClampMin="0.0"))
+	float Radius = 150.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Potato|AuraDamage", meta=(ClampMin="0.0"))
+	float Dps = 10.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Potato|AuraDamage", meta=(ClampMin="0.01"))
+	float TickInterval = 0.25f;
+
+	// 특정 Actor Tag가 있는 대상만 (비우면 전체 허용)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Potato|AuraDamage")
+	FName RequiredTargetTag = NAME_None;
+
+	// 적용할 DamageType
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Potato|AuraDamage")
+	TSubclassOf<UDamageType> DamageTypeClass;
+
 private:
-	UPROPERTY() AActor* CachedOwner = nullptr;
+	UPROPERTY(Transient)
+	AActor* CachedOwner = nullptr;
 
-	UPROPERTY() USphereComponent* Sphere = nullptr;
-
-	UPROPERTY() TSet<TWeakObjectPtr<AActor>> OverlappingTargets;
+	UPROPERTY(Transient)
+	USphereComponent* Sphere = nullptr;
 
 	FTimerHandle AuraTickTH;
+
+	// 오버랩 대상들(약참조)
+	TSet<TWeakObjectPtr<AActor>> OverlappingTargets;
+
+	// 이 컴포넌트 전용 Sphere 이름 (기존 Sphere와 충돌 방지)
+	static const FName AuraSphereName;
+	
+	TMap<TWeakObjectPtr<AActor>, FHitResult> LastSweepHitByTarget;
 };

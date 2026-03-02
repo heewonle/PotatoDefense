@@ -342,4 +342,7 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Collision")
 	UCapsuleComponent* HitCapsule = nullptr;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Monster|Gimmick")
+	TObjectPtr<class UPotatoAuraDamageComponent> AuraDamageComp = nullptr;
 };

@@ -216,7 +216,6 @@ void APotatoFirePillarActor::ApplyVfxFromSlot(const FPotatoSkillVFXSlot& Slot)
 
 void APotatoFirePillarActor::EndLife()
 {
-	//  종료 시점에 “추가 틱”이 더 들어가는 걸 방지
 	if (UWorld* W = GetWorld())
 	{
 		FTimerManager& TM = W->GetTimerManager();
@@ -224,9 +223,40 @@ void APotatoFirePillarActor::EndLife()
 		TM.ClearTimer(TimerLife);
 	}
 
-	Destroy();
-}
+	// 1) VFX 먼저 확실히 종료
+	if (NiagaraComp)
+	{
+		NiagaraComp->Deactivate();          // DeactivateImmediate()는 상황에 따라 더 위험할 때도 있음
+		NiagaraComp->SetAutoDestroy(true);  // 컴포넌트 자체 정리 맡김
+	}
 
+	if (CascadeComp)
+	{
+		CascadeComp->DeactivateSystem();
+		CascadeComp->DestroyComponent(); // 바로 컴포넌트 제거
+		CascadeComp = nullptr;
+		// 선택: CascadeComp->KillParticlesForced();  // UE 버전에 따라 없을 수 있음
+	}
+
+	// 2) 아주 짧게 늦춰서 Destroy (렌더/시뮬 정리 타이밍 확보)
+	if (UWorld* W = GetWorld())
+	{
+		FTimerHandle Tmp;
+		W->GetTimerManager().SetTimer(
+			Tmp,
+			FTimerDelegate::CreateWeakLambda(this, [this]()
+			{
+				Destroy();
+			}),
+			0.05f,
+			false
+		);
+	}
+	else
+	{
+		Destroy();
+	}
+}
 static bool IsPlayerPawn(const AActor* A)
 {
 	const APawn* P = Cast<APawn>(A);

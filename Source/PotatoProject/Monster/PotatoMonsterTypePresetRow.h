@@ -96,4 +96,22 @@ struct POTATOPROJECT_API FPotatoMonsterTypePresetRow : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="HardenShell|Material")
 	float HardenTintStrengthValue = 1.0f;
+	
+	// =========================
+	// Gimmick: Aura Damage (선인장 접촉 데미지)
+	// =========================
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage")
+	bool bEnableAuraDamage = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage", meta=(ClampMin="0.0"))
+	float AuraRadius = 140.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage", meta=(ClampMin="0.0"))
+	float AuraDps = 15.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage", meta=(ClampMin="0.01"))
+	float AuraTickInterval = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage")
+	FName AuraRequiredTargetTag = NAME_None;
 };

@@ -38,7 +38,7 @@
 #include "PotatoHardenShellComponent.h"
 #include "PotatoPresetApplier.h"
 #include "PotatoSplitComponent.h"
-
+#include "PotatoAuraDamageComponent.h"
 // Utils
 #include "Monster/Utils/PotatoAnimUtils.h"              // ComputeMinVisiblePlayRate
 #include "Monster/Utils/PotatoMonsterRuntimeUtils.h"    // GetAnimInstanceSafe, DisableMovementSafe, ScheduleTimerSafe, ComputeBoundsTopLocation
@@ -110,7 +110,7 @@ void APotatoMonster::UpdateHPBarLocation()
 APotatoMonster::APotatoMonster()
 {
 	PrimaryActorTick.bCanEverTick = false;
-
+	
 	// Split Child도 SpawnDefaultController가 정상 동작하도록
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
@@ -132,7 +132,7 @@ APotatoMonster::APotatoMonster()
 	}
 
 	SplitComp = CreateDefaultSubobject<UPotatoSplitComponent>(TEXT("SplitComp"));
-
+	AuraDamageComp = CreateDefaultSubobject<UPotatoAuraDamageComponent>(TEXT("AuraDamageComp"));
 	// ============================================================
 	// ✅ HitCapsule (피격 전용)
 	// 목표:
@@ -195,6 +195,9 @@ void APotatoMonster::BeginPlay()
 {
 	Super::BeginPlay();
 
+	UE_LOG(LogTemp, Warning, TEXT("[AuraDmg] BeginPlay ENTER Owner=%s Comp=%s"),
+		*GetNameSafe(GetOwner()),
+		*GetNameSafe(this));
 	// ============================================================
 	// ✅ HitCapsule 크기 보정 (Mesh Bounds 기반)
 	// - 몬스터마다 메시 크기가 달라도 "적당히" 맞는 피격 범위를 자동으로 잡음
@@ -358,7 +361,33 @@ void APotatoMonster::ApplyPresetsOnce()
 
 		SplitComp->ApplySpecFromFinalStats(FinalStats.SplitSpec, FinalStats.bEnableSplit);
 	}
+	// =========================
+	// AuraDamage (Cactus contact damage)
+	// =========================
+	if (AuraDamageComp)
+	{
+		if (FinalStats.bEnableAuraDamage)
+		{
+			AuraDamageComp->Activate(true);
+			AuraDamageComp->RequiredTargetTag = FinalStats.AuraRequiredTargetTag;
 
+			AuraDamageComp->Configure(
+				FinalStats.AuraRadius,
+				FinalStats.AuraDps,
+				FinalStats.AuraTickInterval
+			);
+
+			UE_LOG(LogTemp, Warning,
+				TEXT("[AuraDmg] Applied. Radius=%.1f Dps=%.2f Tick=%.3f"),
+				FinalStats.AuraRadius,
+				FinalStats.AuraDps,
+				FinalStats.AuraTickInterval);
+		}
+		else
+		{
+			AuraDamageComp->Deactivate();
+		}
+	}
 	// AnimSet
 	SetAnimSet(FinalStats.AnimSet);
 
@@ -825,6 +854,22 @@ void APotatoMonster::OnFinalStatsApplied()
 	if (SplitComp)
 	{
 		SplitComp->ApplySpecFromFinalStats(FinalStats.SplitSpec, FinalStats.bEnableSplit);
+	}
+	
+	if (FinalStats.bEnableAuraDamage)
+	{
+		if (!AuraDamageComp) return;
+
+		if (FinalStats.bEnableAuraDamage)
+		{
+			AuraDamageComp->RequiredTargetTag = FinalStats.AuraRequiredTargetTag;
+			AuraDamageComp->Configure(FinalStats.AuraRadius, FinalStats.AuraDps, FinalStats.AuraTickInterval);
+			AuraDamageComp->Activate(true);
+		}
+		else
+		{
+			AuraDamageComp->Deactivate();
+		}
 	}
 
 	// 필요시 아래를 켜서 완전 경로도 커버 가능

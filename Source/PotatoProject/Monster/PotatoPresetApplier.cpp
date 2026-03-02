@@ -124,6 +124,12 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 		Out.HardenDurationSeconds    = FMath::Max(0.01f, TypeRow->HardenDurationSeconds);
 		Out.HardenTintStrengthParamName = TypeRow->HardenTintStrengthParamName;
 		Out.HardenTintStrengthValue     = TypeRow->HardenTintStrengthValue;
+		
+		Out.bEnableAuraDamage      = TypeRow->bEnableAuraDamage;
+		Out.AuraRadius             = TypeRow->AuraRadius;
+		Out.AuraDps                = TypeRow->AuraDps;
+		Out.AuraTickInterval       = TypeRow->AuraTickInterval;
+		Out.AuraRequiredTargetTag  = TypeRow->AuraRequiredTargetTag;
 
 		//  단일 DefaultSpecialSkillId
 		TypeDefaultSkillId = TypeRow->DefaultSpecialSkillId;

@@ -137,4 +137,26 @@ struct FPotatoMonsterFinalStats
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Split")
 	FPotatoSplitSpec SplitSpec;
+	
+	// =========================
+	// Gimmick: Aura Damage (접촉 데미지)
+	// =========================
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage")
+	bool bEnableAuraDamage = false;
+
+	// 반경
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage", meta=(ClampMin="0.0"))
+	float AuraRadius = 140.f;
+
+	// 초당 데미지
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage", meta=(ClampMin="0.0"))
+	float AuraDps = 15.f;
+
+	// 틱 간격(초)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage", meta=(ClampMin="0.01"))
+	float AuraTickInterval = 0.25f;
+
+	// 특정 태그만(비우면 전체)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AuraDamage")
+	FName AuraRequiredTargetTag = NAME_None;
 };
