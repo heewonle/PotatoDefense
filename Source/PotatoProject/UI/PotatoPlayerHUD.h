@@ -147,7 +147,19 @@ public:
 	// ---- 무기 선택 박스 ----
 	/** 무기 슬롯 Border 배열 (HorizontalBox_0 내부: 감자/옥수수/호박/당근) */
 	// (HorizontalBox_0 자체는 bIsVariable=False 이므로 BindWidget 불필요)
-
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|WeaponSlots")
+	TObjectPtr<UBorder> WeaponBorder_0;
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|WeaponSlots")
+	TObjectPtr<UBorder> WeaponBorder_1;
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|WeaponSlots")
+	TObjectPtr<UBorder> WeaponBorder_2;
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "UI|WeaponSlots")
+	TObjectPtr<UBorder> WeaponBorder_3;
+	
 	// ================================================================
 	// 외부 연결용 레퍼런스
 	// ================================================================
@@ -333,6 +345,9 @@ private:
 
 	/** 빌드 슬롯 Border 배열 (인덱스 순서: Border_2, Border_3, Border_4, Border_5) */
 	TArray<UBorder*> BuildSlotBorders;
+	
+	/** 무기 슬롯 Border 배열 */
+	TArray<UBorder*> WeaponSlotBorders;
 
 	/** 시계 바늘 부드러운 이징용 경과 시간 (-1 = 미초기화) */
 	float SmoothElapsedTime = -1.f;
