@@ -128,8 +128,17 @@ void UBuildingSystemComponent::OnPlaceStructure(const FInputActionValue& Value)
 
 	if (!bIsPlacementValid || GhostActor->IsHidden())
 	{
-		if (PC) PC->ShowHUDMessage(
+		if (PC)
+		{
+			PC->ShowHUDMessage(
 			NSLOCTEXT("Build", "InvalidPlace", "이 장소에는 배치할 수 없습니다."), 1.5f, true);
+		}
+		
+		if (PlacementFailedSound)
+		{
+			UGameplayStatics::PlaySound2D(this, PlacementFailedSound);
+		}
+		
 		return;
 	}
 
@@ -150,8 +159,17 @@ void UBuildingSystemComponent::OnPlaceStructure(const FInputActionValue& Value)
 		{
 			if (!ProductionComponent->TryPurchaseWithWorld(ResourceManager))
 			{
-				if (PC) PC->ShowHUDMessage(
+				if (PC)
+				{
+					PC->ShowHUDMessage(
 					NSLOCTEXT("Build", "NotEnoughResources", "자원이 부족합니다."), 1.5f, true);
+				}
+				
+				if (PlacementFailedSound)
+				{
+					UGameplayStatics::PlaySound2D(this, PlacementFailedSound);
+				}
+				
 				return;
 			}
 		}
@@ -177,6 +195,15 @@ void UBuildingSystemComponent::OnPlaceStructure(const FInputActionValue& Value)
 		if (UPotatoProductionComponent* ProdComp = NewStructure->FindComponentByClass<UPotatoProductionComponent>())
 		{
 			ProdComp->EnableProductionRegistration();
+		}
+		
+		if (SelectedData->PlaceSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(
+				this,
+				SelectedData->PlaceSound,
+				SpawnTransform.GetLocation()
+			);
 		}
 	}
 }

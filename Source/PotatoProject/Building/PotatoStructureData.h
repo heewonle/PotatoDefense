@@ -5,6 +5,7 @@
 #include "PotatoStructureData.generated.h"
 
 class APotatoPlaceableStructure;
+class UNiagaraSystem;
 
 /** 설치 가능한 구조물의 카테고리 정의: 낮/밤 규칙을 위해 */
 UENUM(BlueprintType)
@@ -48,6 +49,22 @@ public:
 	bool bIsDestructible = true;
 	
 	/** 구조물의 최대 체력: bIsDestructible이 false인 경우 비활성화됨 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats", meta = (EditCondition = "bIsDestructible"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats", meta = (EditCondition = "bIsDestructible", EditConditionHides))
 	float MaxHealth = 100.0f;
+	
+	// Effects
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects", meta = (EditCondition = "bIsDestructible", EditConditionHides))
+	TObjectPtr<UNiagaraSystem> DestroyEffect;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects", meta = (EditCondition = "bIsDestructible", EditConditionHides))
+	FVector DestroyEffectScale = FVector(1.0f);
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects", meta = (EditCondition = "bIsDestructible", EditConditionHides))
+	TObjectPtr<USoundBase> DestroySound;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects", meta = (EditCondition = "bIsDestructible", EditConditionHides))
+	TObjectPtr<USoundAttenuation> DestroySoundAttenuation;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Effects")
+	TObjectPtr<USoundBase> PlaceSound;
 };

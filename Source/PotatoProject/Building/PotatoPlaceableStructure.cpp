@@ -1,8 +1,11 @@
 ﻿#include "PotatoPlaceableStructure.h"
+
+#include "NiagaraFunctionLibrary.h"
 #include "PotatoStructureData.h"
 #include "Components/WidgetComponent.h"
 #include "UI/HealthBar.h"
 #include "Core/PotatoProductionComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 APotatoPlaceableStructure::APotatoPlaceableStructure()
 {
@@ -93,12 +96,45 @@ float APotatoPlaceableStructure::TakeDamage(float DamageAmount,
 
 	if (CurrentHealth <= 0.0f)
 	{
-		// 파괴 처리: FX 재생 등
-		// OnStructureDestroyed.Broadcast();
 		bDestroyed = true;
+		PlayDestructionEffects();
 		Destroy();
 	}
 	return DamageToApply;
+}
+
+void APotatoPlaceableStructure::PlayDestructionEffects()
+{
+	if (!StructureData)
+	{
+		return;
+	}
+	
+	if (StructureData->DestroySound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+			this,
+			StructureData->DestroySound,
+			GetActorLocation(),
+			FRotator::ZeroRotator,
+			1.0f,
+			1.0f,
+			0.0f,
+			StructureData->DestroySoundAttenuation
+			);
+	}
+	
+	if (StructureData->DestroyEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			this,
+			StructureData->DestroyEffect,
+			GetActorLocation(),
+			GetActorRotation(),
+			StructureData->DestroyEffectScale,
+			true
+			);
+	}
 }
 
 void APotatoPlaceableStructure::RefreshHpBar()

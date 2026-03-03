@@ -99,6 +99,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Building|Visuals")
 	TObjectPtr<UMaterialInterface> GhostInvalidMaterial;
 	
+	UPROPERTY(EditDefaultsOnly, Category = "Building|Audio")
+	TObjectPtr<USoundBase> PlacementFailedSound;
+	
 public:
 	/** 빌드 모드 토글: 플레이어 컨트롤러에 의해 호출됨(B키) */
 	UFUNCTION(BlueprintCallable, Category = "Building")
