@@ -137,11 +137,17 @@ private:
 
     APotatoPlayerCharacter* PlayerCharacter;
 
+    UFUNCTION()
+    void HandleRoundFinished(int32 Round);
+
+    // ResultPhase 중복 호출 가드
+    bool bResultPhaseTriggered = false;
+    
     UPROPERTY(EditAnywhere, Category = "Spawner")
     TSubclassOf<APotatoMonsterSpawner> MonsterSpawnerClass;
 
-    APotatoMonsterSpawner* MonsterSpawner;
-
+    APotatoMonsterSpawner* MonsterSpawner = nullptr;
+    
     UPROPERTY(EditAnywhere, Category = "Spawner")
     TSubclassOf<APotatoAnimalController> AnimalControllerClass;
 

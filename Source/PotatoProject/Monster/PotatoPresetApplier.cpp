@@ -76,10 +76,12 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 	Out.BehaviorTree = DefaultBehaviorTree;
 	Out.AnimSet = nullptr;
 
+	/*
 	// Proc 기본값(안전한 디폴트)
 	Out.bEnableOnAttackSpecialProc = true;
 	Out.OnAttackSpecialChance = 0.20f;
 	Out.OnAttackSpecialProcCooldown = 1.50f;
+	*/
 
 	// 단일 스킬 기본값
 	Out.DefaultSpecialSkillId = NAME_None;
@@ -309,8 +311,8 @@ FPotatoMonsterFinalStats UPotatoPresetApplier::BuildFinalStats(
 		Out.OnAttackSpecialProcCooldown = TypeRow->OnAttackSpecialProcCooldown;
 	}*/
 
-	Out.OnAttackSpecialChance = FMath::Clamp(Out.OnAttackSpecialChance, 0.f, 1.f);
-	Out.OnAttackSpecialProcCooldown = FMath::Max(0.f, Out.OnAttackSpecialProcCooldown);
+	/*Out.OnAttackSpecialChance = FMath::Clamp(Out.OnAttackSpecialChance, 0.f, 1.f);
+	Out.OnAttackSpecialProcCooldown = FMath::Max(0.f, Out.OnAttackSpecialProcCooldown);*/
 
 	// -------------------------
 	// 3) DefaultSpecialSkillId 결정 (단일 구조: Type only)

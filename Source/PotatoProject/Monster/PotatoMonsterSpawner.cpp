@@ -1,4 +1,7 @@
-﻿#include "PotatoMonsterSpawner.h"
+﻿// ===============================
+// PotatoMonsterSpawner.cpp (StartWave 수정 포함 빌드 가능한 전체)
+// ===============================
+#include "PotatoMonsterSpawner.h"
 
 #include "PotatoMonster.h"
 #include "BPI_LanePathProvider.h"
@@ -7,8 +10,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UnrealType.h"
 
-//  Utils (CPP-local helper 치환)
-#include "Utils/PotatoWaveIdUtils.h" // IsStageOnlyName, MakeStageWaveId
+// Utils
+#include "Utils/PotatoWaveIdUtils.h" // IsRoundOnlyName, MakeRoundWaveId, ParseRoundWaveId
 
 APotatoMonsterSpawner::APotatoMonsterSpawner()
 {
@@ -20,15 +23,15 @@ bool APotatoMonsterSpawner::HasMetaRow(FName WaveId) const
 	return WaveMetaTable && WaveMetaTable->FindRow<FPotatoWaveMetaRow>(WaveId, TEXT("HasMetaRow")) != nullptr;
 }
 
-bool APotatoMonsterSpawner::ResolveFirstWaveForStage(int32 Stage, FName& OutWaveId, int32& OutSub)
+bool APotatoMonsterSpawner::ResolveFirstWaveForRound(int32 Round, FName& OutWaveId, int32& OutSub)
 {
-	int32& NextIdx = NextSubWaveIndexByStage.FindOrAdd(Stage);
+	int32& NextIdx = NextSubWaveIndexByRound.FindOrAdd(Round);
 	if (NextIdx <= 0) NextIdx = 1;
 
 	const int32 ScanMax = NextIdx + 50;
 	for (int32 Sub = NextIdx; Sub <= ScanMax; ++Sub)
 	{
-		const FName Candidate = MakeStageWaveId(Stage, Sub);
+		const FName Candidate = MakeRoundWaveId(Round, Sub);
 		if (HasMetaRow(Candidate))
 		{
 			OutWaveId = Candidate;
@@ -39,14 +42,14 @@ bool APotatoMonsterSpawner::ResolveFirstWaveForStage(int32 Stage, FName& OutWave
 	return false;
 }
 
-bool APotatoMonsterSpawner::ResolveNextWaveForActiveStage(FName& OutWaveId, int32& OutSub)
+bool APotatoMonsterSpawner::ResolveNextWaveForActiveRound(FName& OutWaveId, int32& OutSub)
 {
-	if (ActiveStage <= 0) return false;
-	return ResolveFirstWaveForStage(ActiveStage, OutWaveId, OutSub);
+	if (ActiveRound <= 0) return false;
+	return ResolveFirstWaveForRound(ActiveRound, OutWaveId, OutSub);
 }
 
 // ---------------------------------------------------------
-//  등록 루트 (AliveCount/OnDestroyed/SpawnedMonsters)
+// 등록 루트 (AliveCount/OnDestroyed/SpawnedMonsters)
 // ---------------------------------------------------------
 
 void APotatoMonsterSpawner::RegisterSpawnedMonster(APotatoMonster* Monster)
@@ -56,7 +59,6 @@ void APotatoMonsterSpawner::RegisterSpawnedMonster(APotatoMonster* Monster)
 	AliveCount++;
 	SpawnedMonsters.Add(Monster);
 
-	//  반드시 UFUNCTION + (AActor*) 시그니처
 	Monster->OnDestroyed.AddDynamic(this, &APotatoMonsterSpawner::HandleSpawnedMonsterDestroyed);
 
 	UE_LOG(LogTemp, Warning, TEXT("[Spawner] Register OK | Alive=%d | Monster=%s"),
@@ -81,8 +83,9 @@ void APotatoMonsterSpawner::HandleSpawnedMonsterDestroyed(AActor* DestroyedActor
 
 void APotatoMonsterSpawner::StartWave(FName WaveId)
 {
-	int32 Stage = INDEX_NONE;
-	if (IsStageOnlyName(WaveId, Stage))
+	// ===== Round input ("1") 처리 =====
+	int32 Round = INDEX_NONE;
+	if (IsRoundOnlyName(WaveId, Round))
 	{
 		if (!WaveMetaTable || !WaveSpawnTable)
 		{
@@ -93,26 +96,41 @@ void APotatoMonsterSpawner::StartWave(FName WaveId)
 		FName ResolvedWaveId = NAME_None;
 		int32 ResolvedSub = INDEX_NONE;
 
-		if (!ResolveFirstWaveForStage(Stage, ResolvedWaveId, ResolvedSub))
+		if (!ResolveFirstWaveForRound(Round, ResolvedWaveId, ResolvedSub))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[Spawner] No wave found for Stage=%d"), Stage);
+			UE_LOG(LogTemp, Warning, TEXT("[Spawner] No wave found for Round=%d"), Round);
 			return;
 		}
 
-		ActiveStage = Stage;
+		ActiveRound = Round;
 		ActiveSubWave = ResolvedSub;
-		bStageAutoProgress = true;
+		bRoundAutoProgress = true;
 
 		WaveId = ResolvedWaveId;
 
-		UE_LOG(LogTemp, Log, TEXT("[Spawner] Stage input resolved | Stage=%d -> WaveId=%s"),
-			Stage, *WaveId.ToString());
+		UE_LOG(LogTemp, Log, TEXT("[Spawner] Round input resolved | Round=%d -> WaveId=%s"),
+			Round, *WaveId.ToString());
 	}
 	else
 	{
-		bStageAutoProgress = false;
-		ActiveStage = INDEX_NONE;
-		ActiveSubWave = INDEX_NONE;
+		// ===== 핵심 수정 =====
+		// 기존: "1-2" 같은 실제 WaveId로 StartWave가 호출되면 자동진행 컨텍스트를 꺼버렸음.
+		// 해결: "1-2" 형태면 Round/Sub를 복원(또는 유지)하고 bRoundAutoProgress를 유지.
+		int32 ParsedRound = INDEX_NONE;
+		int32 ParsedSub = INDEX_NONE;
+
+		if (ParseRoundWaveId(WaveId, ParsedRound, ParsedSub))
+		{
+			ActiveRound = ParsedRound;
+			ActiveSubWave = ParsedSub;
+			bRoundAutoProgress = true;
+		}
+		else
+		{
+			bRoundAutoProgress = false;
+			ActiveRound = INDEX_NONE;
+			ActiveSubWave = INDEX_NONE;
+		}
 	}
 
 	StopWave();
@@ -154,8 +172,9 @@ void APotatoMonsterSpawner::StartWave(FName WaveId)
 		PreDelay
 	);
 
-	UE_LOG(LogTemp, Warning, TEXT("[Spawner] Wave %s started | Interval=%.2f | PreDelay=%.2f | QueueItems=%d"),
-		*WaveId.ToString(), CurrentSpawnInterval, PreDelay, PendingQueue.Num());
+	UE_LOG(LogTemp, Warning, TEXT("[Spawner] Wave %s started | Interval=%.2f | PreDelay=%.2f | QueueItems=%d | Auto=%d | Round=%d Sub=%d"),
+		*WaveId.ToString(), CurrentSpawnInterval, PreDelay, PendingQueue.Num(),
+		bRoundAutoProgress ? 1 : 0, ActiveRound, ActiveSubWave);
 }
 
 void APotatoMonsterSpawner::StopWave()
@@ -218,28 +237,32 @@ void APotatoMonsterSpawner::EndWave(EPotatoWaveEndReason Reason, bool bClearMons
 		AliveCount = 0;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[Spawner] Wave %s ended | Reason=%d | ClearMonsters=%d"),
-		*EndedWave.ToString(), (int32)Reason, bClearMonsters ? 1 : 0);
+	UE_LOG(LogTemp, Warning, TEXT("[Spawner] Wave %s ended | Reason=%d | ClearMonsters=%d | Auto=%d | Round=%d Sub=%d"),
+		*EndedWave.ToString(), (int32)Reason, bClearMonsters ? 1 : 0,
+		bRoundAutoProgress ? 1 : 0, ActiveRound, ActiveSubWave);
 
-	if (bStageAutoProgress && Reason == EPotatoWaveEndReason::Cleared && ActiveStage > 0)
+	if (bRoundAutoProgress && Reason == EPotatoWaveEndReason::Cleared && ActiveRound > 0)
 	{
-		int32& NextIdx = NextSubWaveIndexByStage.FindOrAdd(ActiveStage);
+		int32& NextIdx = NextSubWaveIndexByRound.FindOrAdd(ActiveRound);
 		NextIdx = FMath::Max(NextIdx, ActiveSubWave + 1);
 
 		FName NextWaveId = NAME_None;
 		int32 NextSub = INDEX_NONE;
 
-		if (ResolveNextWaveForActiveStage(NextWaveId, NextSub))
+		if (ResolveNextWaveForActiveRound(NextWaveId, NextSub))
 		{
 			ActiveSubWave = NextSub;
-			UE_LOG(LogTemp, Warning, TEXT("[Spawner] Auto progress -> NextWave=%s"), *NextWaveId.ToString());
+			UE_LOG(LogTemp, Warning, TEXT("[Spawner] Auto progress -> NextWave=%s (Round=%d Sub=%d)"),
+				*NextWaveId.ToString(), ActiveRound, ActiveSubWave);
+
 			StartWave(NextWaveId);
 			return;
 		}
 
-		UE_LOG(LogTemp, Warning, TEXT("[Spawner] Stage %d finished (no more waves)"), ActiveStage);
-		bStageAutoProgress = false;
-		ActiveStage = INDEX_NONE;
+		UE_LOG(LogTemp, Warning, TEXT("[Spawner] Round %d finished (no more waves)"), ActiveRound);
+		OnRoundFinished.Broadcast(ActiveRound);
+		bRoundAutoProgress = false;
+		ActiveRound = INDEX_NONE;
 		ActiveSubWave = INDEX_NONE;
 	}
 }
@@ -278,7 +301,6 @@ void APotatoMonsterSpawner::TickSpawn()
 {
 	if (!bWaveActive) return;
 
-	// 더 이상 스폰할 게 없다
 	if (PendingQueue.Num() == 0)
 	{
 		bSpawnFinished = true;
@@ -296,7 +318,6 @@ void APotatoMonsterSpawner::TickSpawn()
 
 	FPendingSpawn& Cur = PendingQueue[0];
 
-	// 엔트리 지연 1회 소모
 	if (!Cur.bEntryDelayConsumed && Cur.EntryDelay > 0.f)
 	{
 		Cur.bEntryDelayConsumed = true;
@@ -321,7 +342,6 @@ void APotatoMonsterSpawner::TickSpawn()
 		{
 			PendingQueue.RemoveAt(0);
 
-			// 다음 아이템 스폰 간격 복구
 			GetWorldTimerManager().ClearTimer(SpawnTickHandle);
 			GetWorldTimerManager().SetTimer(
 				SpawnTickHandle,
@@ -354,7 +374,6 @@ APotatoMonster* APotatoMonsterSpawner::SpawnOne(EMonsterType Type, EMonsterRank 
 		return nullptr;
 	}
 
-	// Lane points (raw)
 	TArray<AActor*> LanePointsRaw;
 	bool bHasLane = false;
 
@@ -382,9 +401,6 @@ APotatoMonster* APotatoMonsterSpawner::SpawnOne(EMonsterType Type, EMonsterRank 
 
 	if (!Monster) return nullptr;
 
-	// =========================
-	// Spawner -> Monster 주입 (네 Monster.h/.cpp 기준)
-	// =========================
 	Monster->WarehouseActor = DefaultWarehouseActor;
 	Monster->Rank = Rank;
 	Monster->MonsterType = Type;
@@ -394,10 +410,8 @@ APotatoMonster* APotatoMonsterSpawner::SpawnOne(EMonsterType Type, EMonsterRank 
 	Monster->RankPresetTable = RankPresetTable;
 	Monster->SpecialSkillPresetTable = SpecialSkillPresetTable;
 
-	//  Split에서 반드시 필요
 	Monster->SpawnerRef = this;
 
-	// Lane 주입 (Monster는 TArray<TObjectPtr<AActor>>)
 	Monster->LanePoints.Reset();
 	Monster->LaneIndex = 0;
 
@@ -418,18 +432,15 @@ APotatoMonster* APotatoMonsterSpawner::SpawnOne(EMonsterType Type, EMonsterRank 
 	}
 
 	Monster->FinishSpawning(Xform);
-
-	//  네 Monster.cpp는 여기서 Stats/AI/BT까지 보장
 	Monster->ApplyPresetsOnce();
 
-	//  등록 (AliveCount + OnDestroyed)
 	RegisterSpawnedMonster(Monster);
 
 	return Monster;
 }
 
 // ---------------------------------------------------------
-//  Split child spawn (Spawner 파이프라인)
+// Split child spawn (Spawner 파이프라인)
 // ---------------------------------------------------------
 
 APotatoMonster* APotatoMonsterSpawner::SpawnSplitChildFromParent(
@@ -442,7 +453,6 @@ APotatoMonster* APotatoMonsterSpawner::SpawnSplitChildFromParent(
 	if (!bWaveActive) return nullptr;
 	if (!IsValid(Parent) || !GetWorld()) return nullptr;
 
-	// Spawn 위치: Parent 주변 지터
 	const float R = FMath::Max(0.f, SpawnJitterRadius);
 
 	FVector SpawnLoc = Parent->GetActorLocation();
@@ -473,27 +483,17 @@ APotatoMonster* APotatoMonsterSpawner::SpawnSplitChildFromParent(
 
 	if (!Child) return nullptr;
 
-	// =========================
-	// 부모 컨텍스트 복사 (네 Monster.cpp 설계에 맞게)
-	// =========================
 	Child->CopyPresetContextFrom(Parent);
 
-	// Target/Lane는 실제 플레이에 바로 필요하니 같이 복사
 	Child->WarehouseActor = Parent->WarehouseActor;
 	Child->LanePoints = Parent->LanePoints;
 	Child->LaneIndex = Parent->LaneIndex;
 
-	//  Split에서 스포너 접근
 	Child->SpawnerRef = this;
 
 	Child->FinishSpawning(Xform);
-
-	//  프리셋 적용 + AI 보장(네 Monster.cpp가 내부에서 함)
 	Child->ApplyPresetsOnce();
 
-	// =========================
-	// HP ratio 적용 (ApplyPresetsOnce 이후 덮어쓰기)
-	// =========================
 	const float ParentMax = FMath::Max(1.f, Parent->MaxHealth);
 	const float Ratio = FMath::Max(0.01f, ChildMaxHpRatio);
 	const float ChildMax = FMath::Max(1.f, ParentMax * Ratio);
@@ -502,13 +502,11 @@ APotatoMonster* APotatoMonsterSpawner::SpawnSplitChildFromParent(
 	Child->Health = ChildMax;
 	Child->RefreshHPBar();
 
-	// Split Depth 세팅
 	if (Child->SplitComp)
 	{
 		Child->SplitComp->SetSplitDepth(ChildDepth);
 	}
 
-	//  웨이브 카운트에 포함
 	RegisterSpawnedMonster(Child);
 
 	return Child;
