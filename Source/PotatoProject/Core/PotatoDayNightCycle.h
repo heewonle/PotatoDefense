@@ -17,7 +17,7 @@ private:
     float TotalElapsedTime = 0.f;   // 현재 사이클 전체 기준 경과 시간(초)
 
     bool bIsStarted = false;
-
+    
     // Day Phase 전환 핸들러
     FTimerHandle PhaseTimerHandle;
 
@@ -31,6 +31,8 @@ private:
 
     UFUNCTION()
     void OnTimerTick();
+    void ClearPhaseTimer();
+    float GetPhaseStartElapsedTime(EDayPhase Phase) const;
 
 #pragma region DayData
 public:
@@ -79,6 +81,14 @@ public:
     // 전체 사이클 기준 경과 시간 (0 ~ TotalDuration)
     UFUNCTION(BlueprintPure, Category = "DayNight")
     float GetTotalElapsedTime() const { return TotalElapsedTime; }
+    
+    // ✅ 즉시 Dawn으로 스킵 (Night 남은 타이머 끊고 Dawn 시작)
+    UFUNCTION(BlueprintCallable, Category="Potato|DayNight")
+    void ForceToDawn(bool bBroadcast = true);
+
+    // ✅ 특정 페이즈로 즉시 스킵 (필요 시 Day/Evening/Night/Dawn 어디든)
+    UFUNCTION(BlueprintCallable, Category="Potato|DayNight")
+    void SkipToPhase(EDayPhase TargetPhase, bool bBroadcast = true);
 
 protected:
     virtual void Deinitialize() override;

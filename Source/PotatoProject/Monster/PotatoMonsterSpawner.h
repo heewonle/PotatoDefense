@@ -36,6 +36,7 @@ struct FPendingSpawn
 	FName SpawnGroup = NAME_None;
 	bool bEntryDelayConsumed = false;
 };
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoundFinished, int32, Round);
 
 UCLASS()
 class POTATOPROJECT_API APotatoMonsterSpawner : public AActor
@@ -160,21 +161,24 @@ public:
 
 	APotatoMonster* SpawnOne(EMonsterType Type, EMonsterRank Rank, FName SpawnGroup);
 	FVector GetSpawnLocationByGroup(FName SpawnGroup) const;
+	
+	UPROPERTY(BlueprintAssignable, Category="Wave")
+	FOnRoundFinished OnRoundFinished;
 
 private:
 	UPROPERTY(Transient)
-	TMap<int32, int32> NextSubWaveIndexByStage;
+	TMap<int32, int32> NextSubWaveIndexByRound;
 
 	UPROPERTY(Transient)
-	int32 ActiveStage = INDEX_NONE;
+	int32 ActiveRound = INDEX_NONE;
 
 	UPROPERTY(Transient)
 	int32 ActiveSubWave = INDEX_NONE;
 
 	UPROPERTY(Transient)
-	bool bStageAutoProgress = false;
+	bool bRoundAutoProgress = false;
 
 	bool HasMetaRow(FName WaveId) const;
-	bool ResolveFirstWaveForStage(int32 Stage, FName& OutWaveId, int32& OutSub);
-	bool ResolveNextWaveForActiveStage(FName& OutWaveId, int32& OutSub);
+	bool ResolveFirstWaveForRound(int32 Round, FName& OutWaveId, int32& OutSub);
+	bool ResolveNextWaveForActiveRound(FName& OutWaveId, int32& OutSub);
 };

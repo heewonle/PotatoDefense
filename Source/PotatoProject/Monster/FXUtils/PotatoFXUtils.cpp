@@ -140,6 +140,36 @@ static bool PassesSfxBurstGate(const UWorld* World, AActor* Owner, USoundBase* S
 	return true;
 }
 
+// ------------------------------
+// Same-Sound Pitch Jitter (Sound-only) - NEW
+// - Owner 상관없이 "같은 Sound면 무조건" 랜덤 피치 적용
+// ------------------------------
+static float GSameSoundPitchJitterMin = 0.92f;
+static float GSameSoundPitchJitterMax = 1.08f;
+
+struct FSoundOnlyKey
+{
+	FObjectKey SoundKey;
+
+	bool operator==(const FSoundOnlyKey& Other) const
+	{
+		return SoundKey == Other.SoundKey;
+	}
+};
+FORCEINLINE uint32 GetTypeHash(const FSoundOnlyKey& K)
+{
+	return GetTypeHash(K.SoundKey);
+}
+
+static float ApplySameSoundPitchJitterAlways_SoundOnly(const UWorld* World, USoundBase* Sound, float BasePitch)
+{
+	if (!World || !Sound) return BasePitch;
+
+	// "같은 Sound면 무조건" 이 요구라, 시간/연속 여부 체크는 없음.
+	const float J = FMath::FRandRange(GSameSoundPitchJitterMin, GSameSoundPitchJitterMax);
+	return FMath::Clamp(BasePitch * J, 0.5f, 2.0f);
+}
+
 namespace PotatoFX
 {
 	// ------------------------------------------------------------
@@ -394,9 +424,7 @@ namespace PotatoFX
 	}
 
 	// ------------------------------------------------------------
-	// Skill SFX (심플: Execute 전용으로 쓰기 좋게 "조용히" 처리)
-	// - Debug/Log 없음
-	// - SoftPtr 로딩 정책은 헤더의 TryGetOrLoadSync에 따름
+	// Skill SFX
 	// ------------------------------------------------------------
 	void PlaySkillSFXSlot(USpecialSkillComponent* Comp, const FPotatoSkillSFXSlot& Slot,
 		const FVector& Origin, float MaxFxDist, bool bImportant)
@@ -411,7 +439,6 @@ namespace PotatoFX
 
 		if (World->GetNetMode() == NM_DedicatedServer) return;
 
-		// Execute-only 운용이라도, 슬롯이 비었으면 그냥 조용히 스킵
 		if (!Slot.HasAny() || Slot.Sound.IsNull()) return;
 
 		if (!PassesFxDistanceGate(World, Origin, MaxFxDist)) return;
@@ -424,9 +451,17 @@ namespace PotatoFX
 		USoundAttenuation* Atten = Slot.Attenuation.IsNull() ? nullptr : TryGetOrLoadSync(Slot.Attenuation);
 		USoundConcurrency* Con   = Slot.Concurrency.IsNull() ? nullptr : TryGetOrLoadSync(Slot.Concurrency);
 
-		const float Pitch = FMath::Clamp(Slot.PitchMultiplier, 0.5f, 2.0f);
-		const float Vol   = FMath::Max(0.f, Slot.VolumeMultiplier);
+		float Pitch = FMath::Clamp(Slot.PitchMultiplier, 0.5f, 2.0f);
+		const float Vol = FMath::Max(0.f, Slot.VolumeMultiplier);
 		if (Vol <= 0.f) return;
+
+		// Owner 상관없이 "같은 Sound면 무조건" 랜덤 피치
+		// - 지금은 bImportant는 고정 유지(연출 우선)
+		// - bImportant도 흔들고 싶으면 if문 제거하면 됨
+		if (!bImportant)
+		{
+			Pitch = ApplySameSoundPitchJitterAlways_SoundOnly(World, S, Pitch);
+		}
 
 		UGameplayStatics::PlaySoundAtLocation(World, S, Origin, Vol, Pitch, 0.f, Atten, Con);
 	}

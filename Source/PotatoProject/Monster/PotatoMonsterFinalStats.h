@@ -98,14 +98,14 @@ struct FPotatoMonsterFinalStats
 	// - “평타는 유지 + 가끔 스페셜 Proc” 정책이면 유지
 	// - 단일 DefaultSpecialSkillId를 Proc에도 쓰는 구조로 운용 가능
 	// =========================
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Stats|Special Proc")
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Stats|Special Proc")
 	bool bEnableOnAttackSpecialProc = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Stats|Special Proc", meta=(ClampMin="0.0", ClampMax="1.0"))
 	float OnAttackSpecialChance = 0.20f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Potato|Stats|Special Proc", meta=(ClampMin="0.0"))
-	float OnAttackSpecialProcCooldown = 1.50f;
+	float OnAttackSpecialProcCooldown = 1.50f;*/
 	
 	// =========================
 	// HardenShell (Data-driven)
