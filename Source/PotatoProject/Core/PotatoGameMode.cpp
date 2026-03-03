@@ -316,7 +316,7 @@ void APotatoGameMode::EndGame(bool IsGameClear, FText Message)
 
 bool APotatoGameMode::CheckVictoryCondition()
 {
-	return (CurrentDay > 10);
+	return (CurrentDay >= 10);
 }
 
 void APotatoGameMode::OnHouseDestroyed(AActor* DestroyedActor)
