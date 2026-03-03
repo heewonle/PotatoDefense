@@ -18,10 +18,19 @@ void UPotatoAnimalManagementComp::BeginPlay()
 {
     Super::BeginPlay();
     //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("animalComp!"));
-    // Owner Actor에서 BoxComponent 자동 탐색 & 캐싱
+    // Owner Actor에서 이름이 "SpawnArea"인 BoxComponent 탐색 & 캐싱
     if (AActor* Owner = GetOwner())
     {
-        CachedBoxComp = Owner->FindComponentByClass<UBoxComponent>();
+        TArray<UBoxComponent*> BoxComps;
+        Owner->GetComponents<UBoxComponent>(BoxComps);
+        for (UBoxComponent* Comp : BoxComps)
+        {
+            if (Comp->GetName() == TEXT("SpawnArea"))
+            {
+                CachedBoxComp = Comp;
+                break;
+            }
+        }
     }
 
     if (!CachedBoxComp)

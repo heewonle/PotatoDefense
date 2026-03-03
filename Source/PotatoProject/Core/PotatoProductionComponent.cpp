@@ -28,7 +28,8 @@ void UPotatoProductionComponent::BeginPlay()
 			ProductionPerMinuteWood,
 			ProductionPerMinuteStone,
 			ProductionPerMinuteCrop,
-			ProductionPerMinuteLivestock
+			ProductionPerMinuteLivestock,
+			bProduceOnlyAtDay
 		);
 	}
 }
@@ -51,20 +52,22 @@ void UPotatoProductionComponent::EnableProductionRegistration()
 			ProductionPerMinuteWood,
 			ProductionPerMinuteStone,
 			ProductionPerMinuteCrop,
-			ProductionPerMinuteLivestock
+			ProductionPerMinuteLivestock,
+			bProduceOnlyAtDay
 		);
 	}
 }
 
 void UPotatoProductionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (!bSkipProductionRegistration && ResourceManager)
+	if (!bSkipProductionRegistration && ResourceManager && IsValid(ResourceManager))
 	{
 		ResourceManager->UnregisterProduction(
 			ProductionPerMinuteWood,
 			ProductionPerMinuteStone,
 			ProductionPerMinuteCrop,
-			ProductionPerMinuteLivestock
+			ProductionPerMinuteLivestock,
+			bProduceOnlyAtDay
 		);
 	}
 

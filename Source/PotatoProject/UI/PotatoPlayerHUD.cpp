@@ -321,7 +321,7 @@ void UPotatoPlayerHUD::HandleResourceChanged(EResourceType Type, int32 NewValue)
 
 	auto FormatResourceText = [&](int32 Amount, EResourceType InType) -> FText
 	{
-		const int32 Rate = ResourceManager->GetTotalProductionPerMinute(InType);
+		const int32 Rate = ResourceManager->GetCurrentProductionPerMinute(InType);
 		return FText::Format(NSLOCTEXT("HUD", "ResRate", "{0}(+{1}/min)"), Amount, Rate);
 	};
 

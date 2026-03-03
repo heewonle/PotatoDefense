@@ -51,6 +51,10 @@ void UPotatoResourceManager::EndSystem()
     TotalProductionPerMinuteStone = 0;
     TotalProductionPerMinuteCrop = 0;
     TotalProductionPerMinuteLivestock = 0;
+    NightTotalWood = 0;
+    NightTotalStone = 0;
+    NightTotalCrop = 0;
+    NightTotalLivestock = 0;
     AccumulatedWood = 0.f;
     AccumulatedStone = 0.f;
     AccumulatedCrop = 0.f;
@@ -136,21 +140,39 @@ bool UPotatoResourceManager::HasEnoughResource(EResourceType Type, int32 Amount)
 
 // ----- 생산 등록 -----
 
-void UPotatoResourceManager::RegisterProduction(int32 InWood, int32 InStone, int32 InCrop, int32 InLivestock)
+void UPotatoResourceManager::RegisterProduction(int32 InWood, int32 InStone, int32 InCrop, int32 InLivestock, bool bOnlyAtDay)
 {
-    TotalProductionPerMinuteWood += InWood;
-    TotalProductionPerMinuteStone += InStone;
-    TotalProductionPerMinuteCrop += InCrop;
+    TotalProductionPerMinuteWood      += InWood;
+    TotalProductionPerMinuteStone     += InStone;
+    TotalProductionPerMinuteCrop      += InCrop;
     TotalProductionPerMinuteLivestock += InLivestock;
+
+    if (!bOnlyAtDay)
+    {
+        NightTotalWood      += InWood;
+        NightTotalStone     += InStone;
+        NightTotalCrop      += InCrop;
+        NightTotalLivestock += InLivestock;
+    }
+
     BroadcastAll();
 }
 
-void UPotatoResourceManager::UnregisterProduction(int32 InWood, int32 InStone, int32 InCrop, int32 InLivestock)
+void UPotatoResourceManager::UnregisterProduction(int32 InWood, int32 InStone, int32 InCrop, int32 InLivestock, bool bOnlyAtDay)
 {
     TotalProductionPerMinuteWood      = FMath::Max(0, TotalProductionPerMinuteWood      - InWood);
     TotalProductionPerMinuteStone     = FMath::Max(0, TotalProductionPerMinuteStone     - InStone);
     TotalProductionPerMinuteCrop      = FMath::Max(0, TotalProductionPerMinuteCrop      - InCrop);
     TotalProductionPerMinuteLivestock = FMath::Max(0, TotalProductionPerMinuteLivestock - InLivestock);
+
+    if (!bOnlyAtDay)
+    {
+        NightTotalWood      = FMath::Max(0, NightTotalWood      - InWood);
+        NightTotalStone     = FMath::Max(0, NightTotalStone     - InStone);
+        NightTotalCrop      = FMath::Max(0, NightTotalCrop      - InCrop);
+        NightTotalLivestock = FMath::Max(0, NightTotalLivestock - InLivestock);
+    }
+
     BroadcastAll();
 }
 
@@ -166,17 +188,45 @@ int32 UPotatoResourceManager::GetTotalProductionPerMinute(EResourceType Type) co
     }
 }
 
+int32 UPotatoResourceManager::GetCurrentProductionPerMinute(EResourceType Type) const
+{
+    const bool bIsNight = DayNightCycle && DayNightCycle->GetCurrentPhase() == EDayPhase::Night;
+
+    if (bIsNight)
+    {
+        switch (Type)
+        {
+            case EResourceType::Wood:      return NightTotalWood;
+            case EResourceType::Stone:     return NightTotalStone;
+            case EResourceType::Crop:      return NightTotalCrop;
+            case EResourceType::Livestock: return NightTotalLivestock;
+            default:                       return 0;
+        }
+    }
+
+    return GetTotalProductionPerMinute(Type);
+}
+
 void UPotatoResourceManager::OnProductionTick()
 {
     if (!bIsStarted) return;
 
-    // 낮에만 생산
-    if (DayNightCycle && DayNightCycle->GetCurrentPhase() != EDayPhase::Day) return;
+    const bool bIsNight = DayNightCycle && DayNightCycle->GetCurrentPhase() == EDayPhase::Night;
 
-    AccumulateAndFlush(TotalProductionPerMinuteWood, AccumulatedWood, ProductionTickInterval, EResourceType::Wood);
-    AccumulateAndFlush(TotalProductionPerMinuteStone, AccumulatedStone, ProductionTickInterval, EResourceType::Stone);
-    AccumulateAndFlush(TotalProductionPerMinuteCrop, AccumulatedCrop, ProductionTickInterval, EResourceType::Crop);
-    AccumulateAndFlush(TotalProductionPerMinuteLivestock, AccumulatedLivestock, ProductionTickInterval, EResourceType::Livestock);
+    if (bIsNight)
+    {
+        AccumulateAndFlush(NightTotalWood,      AccumulatedWood,      ProductionTickInterval, EResourceType::Wood);
+        AccumulateAndFlush(NightTotalStone,     AccumulatedStone,     ProductionTickInterval, EResourceType::Stone);
+        AccumulateAndFlush(NightTotalCrop,      AccumulatedCrop,      ProductionTickInterval, EResourceType::Crop);
+        AccumulateAndFlush(NightTotalLivestock, AccumulatedLivestock, ProductionTickInterval, EResourceType::Livestock);
+    }
+    else
+    {
+        AccumulateAndFlush(TotalProductionPerMinuteWood,      AccumulatedWood,      ProductionTickInterval, EResourceType::Wood);
+        AccumulateAndFlush(TotalProductionPerMinuteStone,     AccumulatedStone,     ProductionTickInterval, EResourceType::Stone);
+        AccumulateAndFlush(TotalProductionPerMinuteCrop,      AccumulatedCrop,      ProductionTickInterval, EResourceType::Crop);
+        AccumulateAndFlush(TotalProductionPerMinuteLivestock, AccumulatedLivestock, ProductionTickInterval, EResourceType::Livestock);
+    }
 
     UE_LOG(LogTemp, Log, TEXT("Current Resources - Wood: %d, Stone: %d, Crop: %d, Livestock: %d"), Wood, Stone, Crop, Livestock);
 }

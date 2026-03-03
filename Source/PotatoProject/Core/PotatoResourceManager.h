@@ -40,6 +40,12 @@ private:
     int32 TotalProductionPerMinuteCrop = 0;
     int32 TotalProductionPerMinuteLivestock = 0;
 
+    // 야간에도 생산되는 컴포넌트(bProduceOnlyAtDay=false)의 합산
+    int32 NightTotalWood = 0;
+    int32 NightTotalStone = 0;
+    int32 NightTotalCrop = 0;
+    int32 NightTotalLivestock = 0;
+
     // 누적 소수 잔여분 (자원 타입당 1개)
     float AccumulatedWood = 0.f;
     float AccumulatedStone = 0.f;
@@ -54,11 +60,15 @@ private:
     void AccumulateAndFlush(int32 TotalPerMinute, float& Accumulated, float DeltaTime, EResourceType Type);
 
 public:
-    void RegisterProduction(int32 InWood, int32 InStone, int32 InCrop, int32 InLivestock);
-    void UnregisterProduction(int32 InWood, int32 InStone, int32 InCrop, int32 InLivestock);
+    void RegisterProduction(int32 InWood, int32 InStone, int32 InCrop, int32 InLivestock, bool bOnlyAtDay = true);
+    void UnregisterProduction(int32 InWood, int32 InStone, int32 InCrop, int32 InLivestock, bool bOnlyAtDay = true);
 
     UFUNCTION(BlueprintPure, Category = "Production")
     int32 GetTotalProductionPerMinute(EResourceType Type) const;
+
+    /** 현재 페이즈 기준 실제 생산량 반환 (Night이면 NightTotal, 그 외엔 전체합) */
+    UFUNCTION(BlueprintPure, Category = "Production")
+    int32 GetCurrentProductionPerMinute(EResourceType Type) const;
 
 public:
     // ---- Lifecycle ----

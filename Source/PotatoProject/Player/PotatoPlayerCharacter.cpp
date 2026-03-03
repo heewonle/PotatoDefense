@@ -392,10 +392,18 @@ void APotatoPlayerCharacter::WeaponChange(const FInputActionValue& Value)
 
 void APotatoPlayerCharacter::OnToggleBuildMode(const FInputActionValue& Value)
 {
-	if (BuildingComponent && IsBuildingMode)
+	if (!BuildingComponent) return;
+
+	if (!IsBuildingMode)
 	{
-		BuildingComponent->ToggleBuildMode();
+		if (APotatoPlayerController* PC = Cast<APotatoPlayerController>(GetController()))
+		{
+			PC->ShowHUDMessage(NSLOCTEXT("HUD", "NightBuild", "밤에는 건설할 수 없습니다"), 1.5f, true);
+		}
+		return;
 	}
+
+	BuildingComponent->ToggleBuildMode();
 }
 
 void APotatoPlayerCharacter::SetIsBuildingMode(bool BuildingMode)
