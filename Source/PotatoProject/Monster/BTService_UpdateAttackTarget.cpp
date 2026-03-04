@@ -1,7 +1,9 @@
 ﻿// ============================================================================
 // BTService_UpdateAttackTarget.cpp (STABILIZED + Player Targeting) - Utils Refactor
-// - 기존 로직 유지
-// - CPP-local helpers 제거 -> 공용 Utils 사용
+//  FIX (2026-03-04):
+//  - MoveGoalLocation(Approach point)가 NavMesh 밖/장애물 내부로 찍혀 "DamageArea 앞에서 멈춤" 발생 가능
+//  - 해결: MoveGoalLocation에 넣기 전에 ProjectPointToNavigation으로 항상 "갈 수 있는 점"으로 보정
+//  - 추가: Target 변경 순간 StopMovement() 남발로 정체가 생길 수 있어, 해당 StopMovement는 제거(안전)
 // ============================================================================
 
 #include "BTService_UpdateAttackTarget.h"
@@ -18,6 +20,9 @@
 
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Pawn.h"
+
+#include "NavigationSystem.h"        // ✅ ProjectPointToNavigation
+#include "NavMesh/RecastNavMesh.h"   // (optional, safe include)
 
 #include "PotatoMonster.h"
 #include "Building/PotatoPlaceableStructure.h"
@@ -64,6 +69,50 @@ static bool IsAliveDestructibleStructure(AActor* A)
 		}
 	}
 	return false;
+}
+
+// ✅ NavMesh 위로 목표점을 보정 (갈 수 없는 점을 BB에 넣지 않기)
+static bool ProjectToNavSafe(UWorld* World, const FVector& In, FVector& Out, const FVector& Extent = FVector(200.f, 200.f, 400.f))
+{
+	if (!World) return false;
+
+	if (UNavigationSystemV1* Nav = UNavigationSystemV1::GetCurrent(World))
+	{
+		FNavLocation Proj;
+		if (Nav->ProjectPointToNavigation(In, Proj, Extent))
+		{
+			Out = Proj.Location;
+			return true;
+		}
+	}
+	return false;
+}
+
+static void SetMoveGoalLocationProjected(
+	UBlackboardComponent* BB,
+	FName KeyName,
+	UWorld* World,
+	const FVector& Desired,
+	const FVector& Fallback)
+{
+	if (!BB || KeyName.IsNone()) return;
+
+	FVector OnNav;
+	if (ProjectToNavSafe(World, Desired, OnNav))
+	{
+		BB->SetValueAsVector(KeyName, OnNav);
+		return;
+	}
+
+	// Desired가 네비 밖이면 Fallback(보통 MyLoc)을 네비로 투영
+	if (ProjectToNavSafe(World, Fallback, OnNav))
+	{
+		BB->SetValueAsVector(KeyName, OnNav);
+		return;
+	}
+
+	// 최후: 그냥 Desired (이 경우는 거의 없음)
+	BB->SetValueAsVector(KeyName, Desired);
 }
 
 // =========================================================
@@ -412,17 +461,10 @@ void UBTService_UpdateAttackTarget::TickNode(UBehaviorTreeComponent& OwnerComp, 
 	const bool bFinalTargetIsWarehouse = (IsValid(Target) && IsValid(Warehouse) && Target == Warehouse);
 	const bool bFinalTargetIsBlocker = (IsValid(Target) && Target != Warehouse && IsAliveDestructibleStructure(Target));
 
-	// (선택) 타겟 변경 순간 StopMovement(블로커 새로 잡을 때만)
+	// ✅ 기존 "타겟 바뀔 때 StopMovement"는 정체/멈춤을 유발할 수 있어 제거
 	if (Mem)
 	{
-		if (Mem->LastTarget.Get() != Target)
-		{
-			if (bFinalTargetIsBlocker)
-			{
-				AIC->StopMovement();
-			}
-			Mem->LastTarget = Target;
-		}
+		Mem->LastTarget = Target;
 	}
 
 	// =========================================================
@@ -434,8 +476,9 @@ void UBTService_UpdateAttackTarget::TickNode(UBehaviorTreeComponent& OwnerComp, 
 	}
 	else if (bTargetInRange)
 	{
+		// 범위 안이면 정지 + "내 위치(네비 보정)"로 세팅
 		AIC->StopMovement();
-		BB->SetValueAsVector(MoveGoalLocationKeyName, MyLoc);
+		SetMoveGoalLocationProjected(BB, MoveGoalLocationKeyName, M->GetWorld(), MyLoc, MyLoc);
 	}
 	else
 	{
@@ -445,15 +488,15 @@ void UBTService_UpdateAttackTarget::TickNode(UBehaviorTreeComponent& OwnerComp, 
 		// 플레이어 추격용
 		if (bTargetIsPlayer)
 		{
+			FVector Desired = Target->GetActorLocation();
 			FVector Approach;
 			if (ComputeApproachPoint2D(M, Target, Extra, Approach))
 			{
-				BB->SetValueAsVector(MoveGoalLocationKeyName, Approach);
+				Desired = Approach;
 			}
-			else
-			{
-				BB->SetValueAsVector(MoveGoalLocationKeyName, Target->GetActorLocation());
-			}
+
+			// ✅ 핵심: 네비 위로 보정해서 "갈 수 있는 점"만 넣기
+			SetMoveGoalLocationProjected(BB, MoveGoalLocationKeyName, M->GetWorld(), Desired, MyLoc);
 		}
 		// 레인 따라가는 중 + Warehouse 기본이면 MoveGoalLocation은 비움
 		else if (bIsLaneMode && bFinalTargetIsWarehouse && !bFinalTargetIsBlocker)
@@ -462,15 +505,15 @@ void UBTService_UpdateAttackTarget::TickNode(UBehaviorTreeComponent& OwnerComp, 
 		}
 		else
 		{
+			FVector Desired = Target->GetActorLocation();
 			FVector Approach;
 			if (ComputeApproachPoint2D(M, Target, Extra, Approach))
 			{
-				BB->SetValueAsVector(MoveGoalLocationKeyName, Approach);
+				Desired = Approach;
 			}
-			else
-			{
-				BB->SetValueAsVector(MoveGoalLocationKeyName, Target->GetActorLocation());
-			}
+
+			// ✅ 핵심: 네비 위로 보정해서 "DamageArea 앞 멈춤" 방지
+			SetMoveGoalLocationProjected(BB, MoveGoalLocationKeyName, M->GetWorld(), Desired, MyLoc);
 		}
 	}
 

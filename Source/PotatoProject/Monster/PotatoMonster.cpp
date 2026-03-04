@@ -257,9 +257,24 @@ void APotatoMonster::BeginPlay()
 	if (UCapsuleComponent* RootCap = GetCapsuleComponent())
 	{
 		RootCap->SetCollisionProfileName(TEXT("MonsterRoot"));
+		RootCap->OnComponentHit.AddDynamic(this, &APotatoMonster::Dbg_OnRootHit);
+	}
+	if (UCharacterMovementComponent* Move = GetCharacterMovement())
+	{
+		Move->bUseRVOAvoidance = false;
 	}
 }
+void APotatoMonster::Dbg_OnRootHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (!OtherActor || OtherActor == this) return;
 
+	UE_LOG(LogTemp, Warning, TEXT("[STOP] Hit %s / %s  Profile=%s ObjType=%s"),
+		*GetNameSafe(OtherActor),
+		*GetNameSafe(OtherComp),
+		OtherComp ? *OtherComp->GetCollisionProfileName().ToString() : TEXT("None"),
+		OtherComp ? *UEnum::GetValueAsString(OtherComp->GetCollisionObjectType()) : TEXT("None"));
+}
 // ============================================================
 // Split Child Context / AI Fix
 // ============================================================

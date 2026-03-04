@@ -375,11 +375,13 @@ bool UPotatoCombatComponent::IsTargetInRange(AActor* Target) const
 	const FVector From = GetOwner()->GetActorLocation();
 	const float Range = Stats.AttackRange + FMath::Max(0.f, AttackRangePadding);
 
-	// DamageArea 제외된 실제 콜리전 표면까지의 2D 거리 계산
-	FVector Closest2D;
-	GetClosestPoint2DOnTarget(Target, From, Closest2D);
+	FVector Origin, Extent;
+	GetTargetBoundsSafe(Target, Origin, Extent);
 
-	const float SurfaceDist2D = FVector::Dist2D(From, Closest2D);
+	const float CenterDist2D = FVector::Dist2D(From, Origin);
+	const float Radius2D = FVector(Extent.X, Extent.Y, 0.f).Size();
+	const float SurfaceDist2D = FMath::Max(0.f, CenterDist2D - Radius2D);
+
 	return SurfaceDist2D <= Range;
 }
 
