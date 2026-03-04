@@ -60,6 +60,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* NextDialogueAction;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* ToggleUIAction;
+	
 	// HUD
 public:
 	UPROPERTY(BlueprintReadWrite, Category = "HUD|Setup")

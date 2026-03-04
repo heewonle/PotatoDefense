@@ -32,6 +32,8 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	void Dbg_OnRootHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	                   FVector NormalImpulse, const FHitResult& Hit);
 
 public:
 	// =========================
