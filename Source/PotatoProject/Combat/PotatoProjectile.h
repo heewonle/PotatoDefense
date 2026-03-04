@@ -8,6 +8,7 @@
 class USphereComponent;
 class UPotatoWeaponData;
 class UNiagaraComponent;
+class UNiagaraSystem;
 
 UCLASS()
 class POTATOPROJECT_API APotatoProjectile : public AActor
@@ -42,6 +43,9 @@ public:
 
     // 탄도학 계산을 사용하여 초기 속도를 설정하는 버전
     void InitializeProjectileWithBallistics(UPotatoWeaponData* WeaponData, const FVector& InitialVelocity);
+
+	/** 히트스캔 Trail 전용: 충돌/데미지 없이 Trail만 재생하며 End까지 고속 이동 후 소멸 */
+	void InitializeAsHitscanTrail(UNiagaraSystem* TrailEffect, const FVector& End, float Speed);
 
 protected:
 	// 충돌 델리게이트

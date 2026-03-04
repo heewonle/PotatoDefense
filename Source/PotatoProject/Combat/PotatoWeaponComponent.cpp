@@ -11,6 +11,7 @@
 #include "DrawDebugHelpers.h"
 #include "Player/PotatoPlayerCharacter.h"
 #include "Player/PotatoPlayerController.h"
+#include "NiagaraComponent.h"
 
 UPotatoWeaponComponent::UPotatoWeaponComponent()
 {
@@ -544,7 +545,7 @@ void UPotatoWeaponComponent::FireProjectile(const FVector& TargetLocation)
 	FVector LaunchDirection = ToTarget;
 	FRotator LaunchRotation = LaunchDirection.Rotation() + CurrentWeaponData->LaunchAngleOffset;
 
-	DrawDebugLine(GetWorld(), MuzzleLocation, ActualTargetLocation, FColor::Green, false, 2.0f, 0, 1.5f);
+	//DrawDebugLine(GetWorld(), MuzzleLocation, ActualTargetLocation, FColor::Green, false, 2.0f, 0, 1.5f);
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = GetOwner();
@@ -664,17 +665,17 @@ void UPotatoWeaponComponent::FireProjectileWithBallistics(const FVector& TargetL
 
 void UPotatoWeaponComponent::FireHitscan(const FVector& TargetLocation)
 {
-	ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
-	if (!OwnerCharacter)
-	{
-		return;
-	}
+    ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
+    if (!OwnerCharacter)
+    {
+        return;
+    }
 
-	APlayerController* PlayerController = Cast<APlayerController>(OwnerCharacter->GetController());
-	if (!PlayerController)
-	{
-		return;
-	}
+    APlayerController* PlayerController = Cast<APlayerController>(OwnerCharacter->GetController());
+    if (!PlayerController)
+    {
+        return;
+    }
 
     // 시각적 피드백과 별개로 게임플레이의 경험을 위해 카메라 방향에서 트레이스도 계산한다
     FVector CameraLoc;
@@ -682,24 +683,24 @@ void UPotatoWeaponComponent::FireHitscan(const FVector& TargetLocation)
     PlayerController->GetPlayerViewPoint(CameraLoc, CameraRot);
 
     // Muzzle에서 Target까지의 기본 방향 계산 (시각적 피드백을 위해 총구 방향을 저장!)
-	FVector MuzzleLocation = GetMuzzleLocation();
-	//FVector BaseDirection = (TargetLocation - MuzzleLocation).GetSafeNormal();
+    FVector MuzzleLocation = GetMuzzleLocation();
+    //FVector BaseDirection = (TargetLocation - MuzzleLocation).GetSafeNormal();
     FVector BaseDirection = CameraRot.Vector(); // 카메라 방향 라인트레이스를 계산 - 게임 플레이 정확도
 
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(OwnerCharacter);
-	QueryParams.AddIgnoredActor(CurrentWeaponActor);
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(OwnerCharacter);
+    QueryParams.AddIgnoredActor(CurrentWeaponActor);
 
-	FCollisionObjectQueryParams ObjectQueryParams;
-	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
-	ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
-	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
+    FCollisionObjectQueryParams ObjectQueryParams;
+    ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldStatic);
+    ObjectQueryParams.AddObjectTypesToQuery(ECC_WorldDynamic);
+    ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
 
-	for (int32 i = 0; i < CurrentWeaponData->PelletCount; ++i)
-	{
-		/*FVector SpreadDirection = UKismetMathLibrary::RandomUnitVectorInConeInDegrees(
-			BaseDirection, CurrentWeaponData->SpreadAngle);*/
-        
+    for (int32 i = 0; i < CurrentWeaponData->PelletCount; ++i)
+    {
+        /*FVector SpreadDirection = UKismetMathLibrary::RandomUnitVectorInConeInDegrees(
+            BaseDirection, CurrentWeaponData->SpreadAngle);*/
+
         float CurrentSpread = GetCurrentSpreadAngle();
         FVector SpreadDirection = UKismetMathLibrary::RandomUnitVectorInConeInDegrees(
             BaseDirection, CurrentSpread);
@@ -708,168 +709,197 @@ void UPotatoWeaponComponent::FireHitscan(const FVector& TargetLocation)
         FVector EffectDirection = UKismetMathLibrary::RandomUnitVectorInConeInDegrees(
             (TargetLocation - MuzzleLocation).GetSafeNormal(), CurrentSpread);
 
-		//FVector TraceEnd = MuzzleLocation + (SpreadDirection * CurrentWeaponData->EffectiveRange);
-        
+        //FVector TraceEnd = MuzzleLocation + (SpreadDirection * CurrentWeaponData->EffectiveRange);
+
         // 실제 트레이스는 중앙에서 수행, 시각적 피드백은 총구에서 수행 - 게임플레이 정확도와 시각적 만족도의 균형을 위해
         FVector TraceEnd = CameraLoc + (SpreadDirection * CurrentWeaponData->EffectiveRange);
 
-		FHitResult HitResult;
+        FHitResult HitResult;
 
-		/*bool bHit = GetWorld()->LineTraceSingleByObjectType(HitResult, MuzzleLocation, TraceEnd, ObjectQueryParams,
-		                                                    QueryParams);*/
+        /*bool bHit = GetWorld()->LineTraceSingleByObjectType(HitResult, MuzzleLocation, TraceEnd, ObjectQueryParams,
+                                                            QueryParams);*/
 
         bool bHit = GetWorld()->LineTraceSingleByObjectType(
             HitResult,
-            CameraLoc,   // ← 변경: MuzzleLocation -> CameraLoc : 게임플레이 정확도를 위해 카메라에서 트레이스 계산
+            CameraLoc,
             TraceEnd,
             ObjectQueryParams,
             QueryParams
         );
-		if (bHit)
-		{
-			AActor* HitActor = HitResult.GetActor();
 
-			if (HitActor && HitActor->ActorHasTag(TEXT("Monster")))
-			{
-                DrawDebugLine(GetWorld(), CameraLoc, HitResult.ImpactPoint,
-                    FColor::Red, false, 2.0f, 0, 1.5f);
-				UGameplayStatics::ApplyDamage(HitActor, CurrentWeaponData->BaseDamage, PlayerController,
-				                              CurrentWeaponActor, UDamageType::StaticClass());
+        // Trail 종점: 히트 시 피탄점, 미스 시 MuzzleLocation 기준 TraceEnd -> 히트 시에만 Trail 생성으로 변경해볼게요
+        if (CurrentWeaponData->TrailEffect)
+        {
+            // TrailEnd는 MuzzleLocation 기준으로 동일 방향 계산
+            /* FVector TrailEnd = bHit
+                ? HitResult.ImpactPoint
+                : MuzzleLocation + EffectDirection * CurrentWeaponData->EffectiveRange; */
+
+            FVector TrailEnd = HitResult.ImpactPoint;
+
+            FActorSpawnParameters TrailSpawnParams;
+            TrailSpawnParams.Owner = GetOwner();
+            TrailSpawnParams.Instigator = Cast<APawn>(GetOwner());
+            TrailSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+            APotatoProjectile* TrailActor = GetWorld()->SpawnActor<APotatoProjectile>(
+                APotatoProjectile::StaticClass(),
+                MuzzleLocation,
+                (TrailEnd - MuzzleLocation).GetSafeNormal().Rotation(),
+                TrailSpawnParams
+            );
+            if (TrailActor)
+            {
+                 float TrailDistance = FVector::Distance(MuzzleLocation, TrailEnd);
+                 float TrailSpeed = TrailDistance / 0.1f;
+                 TrailActor->InitializeAsHitscanTrail(CurrentWeaponData->TrailEffect, TrailEnd, TrailSpeed);
+                 /*TrailActor->InitializeAsHitscanTrail(CurrentWeaponData->TrailEffect, TrailEnd, 10000.0f);*/
             }
-            DrawDebugLine(GetWorld(), CameraLoc, HitResult.ImpactPoint,
-                FColor::Green, false, 2.0f, 0, 1.5f);
+        }
+
+        if (bHit)
+        {
+            AActor* HitActor = HitResult.GetActor();
+
+            if (HitActor && HitActor->ActorHasTag(TEXT("Monster")))
+            {
+                //DrawDebugLine(GetWorld(), CameraLoc, HitResult.ImpactPoint, FColor::Red, false, 2.0f, 0, 1.5f);
+                UGameplayStatics::ApplyDamage(HitActor, CurrentWeaponData->BaseDamage, PlayerController,
+                    CurrentWeaponActor, UDamageType::StaticClass());
+            }
+            //DrawDebugLine(GetWorld(), CameraLoc, HitResult.ImpactPoint, FColor::Green, false, 2.0f, 0, 1.5f);
             //SpawnHitscanVisual(HitResult, SpreadDirection);
             SpawnHitscanVisual(HitResult, EffectDirection); // 당근 각도는 카메라 방향이 아닌 총구에서 발사되는 방향으로 시각적 피드백을 준다
-		}
-	}
+        }
+    }
 }
 
 void UPotatoWeaponComponent::SpawnHitscanVisual(const FHitResult& HitResult, const FVector& ShotDirection)
 {
-	if (!CurrentWeaponData->HitscanActorClass)
-	{
-		return;
-	}
+    if (!CurrentWeaponData->HitscanActorClass)
+    {
+        return;
+    }
 
-	FRotator VisualRotation = ShotDirection.Rotation();
+    FRotator VisualRotation = ShotDirection.Rotation();
 
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	AActor* VisualActor = GetWorld()->SpawnActor<AActor>(
-		CurrentWeaponData->HitscanActorClass,
-		HitResult.Location,
-		VisualRotation,
-		SpawnParams
-	);
+    AActor* VisualActor = GetWorld()->SpawnActor<AActor>(
+        CurrentWeaponData->HitscanActorClass,
+        HitResult.Location,
+        VisualRotation,
+        SpawnParams
+    );
 
-	if (VisualActor)
-	{
-		VisualActor->AttachToComponent(HitResult.GetComponent(), FAttachmentTransformRules::KeepWorldTransform);
-		VisualActor->SetLifeSpan(10.0f);
-	}
-	
-	if (!CurrentWeaponData)
-	{
-		return;
-	}
-	
-	if (CurrentWeaponData->ImpactEffect)
-	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-			GetWorld(),
-			CurrentWeaponData->ImpactEffect,
-			HitResult.Location,
-			FRotator::ZeroRotator,
-			CurrentWeaponData->ImpactEffectScale,
-			true,
-			true);
-	}
-	
-	if (CurrentWeaponData->ImpactSound)
-	{
-		float RandomPitch = GetRandomPitch(CurrentWeaponData->FireSoundPitchRandomness);
-		UGameplayStatics::PlaySoundAtLocation(this, CurrentWeaponData->ImpactSound, HitResult.Location, 1.0f, RandomPitch);
-	}
+    if (VisualActor)
+    {
+        VisualActor->AttachToComponent(HitResult.GetComponent(), FAttachmentTransformRules::KeepWorldTransform);
+        VisualActor->SetLifeSpan(10.0f);
+    }
+
+    if (!CurrentWeaponData)
+    {
+        return;
+    }
+
+    if (CurrentWeaponData->ImpactEffect)
+    {
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+            GetWorld(),
+            CurrentWeaponData->ImpactEffect,
+            HitResult.Location,
+            FRotator::ZeroRotator,
+            CurrentWeaponData->ImpactEffectScale,
+            true,
+            true);
+    }
+
+    if (CurrentWeaponData->ImpactSound)
+    {
+        float RandomPitch = GetRandomPitch(CurrentWeaponData->FireSoundPitchRandomness);
+        UGameplayStatics::PlaySoundAtLocation(this, CurrentWeaponData->ImpactSound, HitResult.Location, 1.0f, RandomPitch);
+    }
 }
 
 void UPotatoWeaponComponent::PlayFireEffects()
 {
-	if (!CurrentWeaponData || !CurrentWeaponActor)
-	{
-		return;
-	}
+    if (!CurrentWeaponData || !CurrentWeaponActor)
+    {
+        return;
+    }
 
-	// 1. 사운드 재생 (랜덤 피치 적용)
-	if (CurrentWeaponData->FireSound)
-	{
-		float RandomPitch = GetRandomPitch(CurrentWeaponData->FireSoundPitchRandomness);
-		UGameplayStatics::PlaySoundAtLocation(this, CurrentWeaponData->FireSound, GetMuzzleLocation(), 1.0f,
-		                                      RandomPitch);
-	}
+    // 1. 사운드 재생 (랜덤 피치 적용)
+    if (CurrentWeaponData->FireSound)
+    {
+        float RandomPitch = GetRandomPitch(CurrentWeaponData->FireSoundPitchRandomness);
+        UGameplayStatics::PlaySoundAtLocation(this, CurrentWeaponData->FireSound, GetMuzzleLocation(), 1.0f,
+            RandomPitch);
+    }
 
-	// 2. 총구 이펙트 재생
-	if (CurrentWeaponData->MuzzleFlash)
-	{
-		// 무기 메쉬의 Muzzle 소켓에 부착
-		UNiagaraFunctionLibrary::SpawnSystemAttached(
-			CurrentWeaponData->MuzzleFlash,
-			CurrentWeaponActor->WeaponMesh,
-			TEXT("Muzzle"),
-			FVector::ZeroVector,
-			FRotator::ZeroRotator,
-			EAttachLocation::SnapToTarget,
-			true
-		);
-	}
+    // 2. 총구 이펙트 재생
+    if (CurrentWeaponData->MuzzleFlash)
+    {
+        // 무기 메쉬의 Muzzle 소켓에 부착
+        UNiagaraFunctionLibrary::SpawnSystemAttached(
+            CurrentWeaponData->MuzzleFlash,
+            CurrentWeaponActor->WeaponMesh,
+            TEXT("Muzzle"),
+            FVector::ZeroVector,
+            FRotator::ZeroRotator,
+            EAttachLocation::SnapToTarget,
+            true
+        );
+    }
 
-	ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
-	if (!OwnerCharacter)
-	{
-		return;
-	}
+    ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
+    if (!OwnerCharacter)
+    {
+        return;
+    }
 
-	APlayerController* PlayerController = Cast<APlayerController>(OwnerCharacter->GetController());
-	if (!PlayerController)
-	{
-		return;
-	}
+    APlayerController* PlayerController = Cast<APlayerController>(OwnerCharacter->GetController());
+    if (!PlayerController)
+    {
+        return;
+    }
 
-	// 3. Camera Shake
-	if (CurrentWeaponData->FireCameraShake)
-	{
-		PlayerController->ClientStartCameraShake(CurrentWeaponData->FireCameraShake);
-	}
+    // 3. Camera Shake
+    if (CurrentWeaponData->FireCameraShake)
+    {
+        PlayerController->ClientStartCameraShake(CurrentWeaponData->FireCameraShake);
+    }
 
-	
-	if (CurrentWeaponData && CurrentWeaponActor)
-	{
-		// 4. ControlRotation Recoil: 반동 누적, 연사 시 계속 위로 올라가도록
-		TargetRecoilPitch += CurrentWeaponData->RecoilPitch;
-		TargetRecoilYaw += FMath::RandRange(-CurrentWeaponData->RecoilYaw, CurrentWeaponData->RecoilYaw);
-		
-		// 5. Procedural Weapon Kick (무기 모델 반동)
-		CurrentWeaponActor->PlayKick(CurrentWeaponData->WeaponKickOffset, CurrentWeaponData->WeaponKickRotation,
-								 CurrentWeaponData->WeaponKickRecoverySpeed);
-	}
-	
-	if (CurrentWeaponData->FireMontage)
-	{
-		OwnerCharacter->PlayAnimMontage(CurrentWeaponData->FireMontage);
-	}
-	
+
+    if (CurrentWeaponData && CurrentWeaponActor)
+    {
+        // 4. ControlRotation Recoil: 반동 누적, 연사 시 계속 위로 올라가도록
+        TargetRecoilPitch += CurrentWeaponData->RecoilPitch;
+        TargetRecoilYaw += FMath::RandRange(-CurrentWeaponData->RecoilYaw, CurrentWeaponData->RecoilYaw);
+
+        // 5. Procedural Weapon Kick (무기 모델 반동)
+        CurrentWeaponActor->PlayKick(CurrentWeaponData->WeaponKickOffset, CurrentWeaponData->WeaponKickRotation,
+            CurrentWeaponData->WeaponKickRecoverySpeed);
+    }
+
+    if (CurrentWeaponData->FireMontage)
+    {
+        OwnerCharacter->PlayAnimMontage(CurrentWeaponData->FireMontage);
+    }
+
 }
 
 float UPotatoWeaponComponent::GetRandomPitch(float SoundPitchRandomness)
 {
-	float RandomPitch = 1.0f;
-	
-	if (SoundPitchRandomness > 0.0f)
-	{
-		float MinPitch = 1.0f - SoundPitchRandomness;
-		float MaxPitch = 1.0f + SoundPitchRandomness;
-		return RandomPitch = FMath::RandRange(MinPitch, MaxPitch);
-	}
-	
-	return RandomPitch;
+    float RandomPitch = 1.0f;
+
+    if (SoundPitchRandomness > 0.0f)
+    {
+        float MinPitch = 1.0f - SoundPitchRandomness;
+        float MaxPitch = 1.0f + SoundPitchRandomness;
+        return RandomPitch = FMath::RandRange(MinPitch, MaxPitch);
+    }
+
+    return RandomPitch;
 }

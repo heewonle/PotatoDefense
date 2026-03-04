@@ -270,3 +270,34 @@ void APotatoProjectile::PlayImpactEffects(const FVector& ImpactLocation)
 			);
 	}
 }
+
+void APotatoProjectile::InitializeAsHitscanTrail(UNiagaraSystem* TrailEffect, const FVector& End, float Speed)
+{
+	// 충돌 완전 비활성화 - BeginPlay에서 바인딩된 이벤트도 무효화
+	CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CollisionComp->SetCollisionProfileName(TEXT("NoCollision"));
+	CollisionComp->OnComponentHit.Clear();
+	CollisionComp->OnComponentBeginOverlap.Clear();
+	ProjectileMesh->SetVisibility(false);
+
+	if (TrailComponent && TrailEffect)
+	{
+		TrailComponent->SetAsset(TrailEffect);
+		TrailComponent->Activate(true); // bReset=true로 강제 초기화
+	}
+
+	if (ProjectileMovement)
+	{
+		FVector Direction = (End - GetActorLocation()).GetSafeNormal();
+		ProjectileMovement->InitialSpeed = Speed;
+		ProjectileMovement->MaxSpeed = Speed;
+		ProjectileMovement->ProjectileGravityScale = 0.0f;
+		ProjectileMovement->Velocity = Direction * Speed;
+		ProjectileMovement->SetUpdatedComponent(CollisionComp);
+	}
+
+	float Distance = FVector::Distance(GetActorLocation(), End);
+	float TravelTime = (Speed > 0.0f) ? (Distance / Speed) : 0.1f;
+	//SetLifeSpan(TravelTime + 0.5f);
+    SetLifeSpan(TravelTime);
+}
