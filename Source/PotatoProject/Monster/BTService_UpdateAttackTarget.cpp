@@ -4,6 +4,10 @@
 //  - MoveGoalLocation(Approach point)가 NavMesh 밖/장애물 내부로 찍혀 "DamageArea 앞에서 멈춤" 발생 가능
 //  - 해결: MoveGoalLocation에 넣기 전에 ProjectPointToNavigation으로 항상 "갈 수 있는 점"으로 보정
 //  - 추가: Target 변경 순간 StopMovement() 남발로 정체가 생길 수 있어, 해당 StopMovement는 제거(안전)
+//
+//  추가 FIX (MoveTo 재시도/지터 방지):
+//  - MoveGoalLocation은 "충분히 크게 변할 때만" 갱신 (MoveGoalUpdateMinDelta)
+//  - 타겟이 같은 동안 + 근접 구간이면 MoveGoalLocation 고정 (FreezeMoveGoalWhenCloseDist)
 // ============================================================================
 
 #include "BTService_UpdateAttackTarget.h"
@@ -21,8 +25,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Pawn.h"
 
-#include "NavigationSystem.h"        // ✅ ProjectPointToNavigation
-#include "NavMesh/RecastNavMesh.h"   // (optional, safe include)
+#include "NavigationSystem.h"
+#include "NavMesh/RecastNavMesh.h"   // optional
 
 #include "PotatoMonster.h"
 #include "Building/PotatoPlaceableStructure.h"
@@ -37,82 +41,104 @@
 // Extra helpers (file-local, minimal)
 // =========================================================
 
-// 너 원본이 "거리"를 원해서 sq 버전 대신 거리 버전 하나만 유지
 static FORCEINLINE float DistancePointToSegment2D_Dist(const FVector& P3, const FVector& A3, const FVector& B3)
 {
-	const FVector2D P(P3.X, P3.Y);
-	const FVector2D A(A3.X, A3.Y);
-	const FVector2D B(B3.X, B3.Y);
+    const FVector2D P(P3.X, P3.Y);
+    const FVector2D A(A3.X, A3.Y);
+    const FVector2D B(B3.X, B3.Y);
 
-	const FVector2D AB = B - A;
-	const float AB2 = FVector2D::DotProduct(AB, AB);
+    const FVector2D AB = B - A;
+    const float AB2 = FVector2D::DotProduct(AB, AB);
 
-	if (AB2 <= KINDA_SMALL_NUMBER)
-	{
-		return FVector2D::Distance(A, P);
-	}
+    if (AB2 <= KINDA_SMALL_NUMBER)
+    {
+        return FVector2D::Distance(A, P);
+    }
 
-	const float T = FMath::Clamp(FVector2D::DotProduct(P - A, AB) / AB2, 0.f, 1.f);
-	const FVector2D Closest = A + T * AB;
-	return FVector2D::Distance(Closest, P);
+    const float T = FMath::Clamp(FVector2D::DotProduct(P - A, AB) / AB2, 0.f, 1.f);
+    const FVector2D Closest = A + T * AB;
+    return FVector2D::Distance(Closest, P);
 }
 
 static bool IsAliveDestructibleStructure(AActor* A)
 {
-	if (!IsValid(A)) return false;
+    if (!IsValid(A)) return false;
 
-	if (APotatoPlaceableStructure* S = Cast<APotatoPlaceableStructure>(A))
-	{
-		if (S->StructureData && S->StructureData->bIsDestructible)
-		{
-			return (S->CurrentHealth > 0.f);
-		}
-	}
-	return false;
+    if (APotatoPlaceableStructure* S = Cast<APotatoPlaceableStructure>(A))
+    {
+        if (S->StructureData && S->StructureData->bIsDestructible)
+        {
+            return (S->CurrentHealth > 0.f);
+        }
+    }
+    return false;
 }
 
-// ✅ NavMesh 위로 목표점을 보정 (갈 수 없는 점을 BB에 넣지 않기)
 static bool ProjectToNavSafe(UWorld* World, const FVector& In, FVector& Out, const FVector& Extent = FVector(200.f, 200.f, 400.f))
 {
-	if (!World) return false;
+    if (!World) return false;
 
-	if (UNavigationSystemV1* Nav = UNavigationSystemV1::GetCurrent(World))
-	{
-		FNavLocation Proj;
-		if (Nav->ProjectPointToNavigation(In, Proj, Extent))
-		{
-			Out = Proj.Location;
-			return true;
-		}
-	}
-	return false;
+    if (UNavigationSystemV1* Nav = UNavigationSystemV1::GetCurrent(World))
+    {
+        FNavLocation Proj;
+        if (Nav->ProjectPointToNavigation(In, Proj, Extent))
+        {
+            Out = Proj.Location;
+            return true;
+        }
+    }
+    return false;
 }
 
-static void SetMoveGoalLocationProjected(
-	UBlackboardComponent* BB,
-	FName KeyName,
-	UWorld* World,
-	const FVector& Desired,
-	const FVector& Fallback)
+// ✅ "Project + Throttle + Freeze" 버전
+static void SetMoveGoalLocationProjected_Stable(
+    UBlackboardComponent* BB,
+    FName KeyName,
+    UWorld* World,
+    const FVector& Desired,
+    const FVector& Fallback,
+    FUpdateAttackTargetMemory* Mem,
+    const float MinDeltaToUpdate,
+    const bool bFreezeThisTick,
+    const bool bForceUpdate)
 {
-	if (!BB || KeyName.IsNone()) return;
+    if (!BB || KeyName.IsNone()) return;
 
-	FVector OnNav;
-	if (ProjectToNavSafe(World, Desired, OnNav))
-	{
-		BB->SetValueAsVector(KeyName, OnNav);
-		return;
-	}
+    // Freeze 조건이면 아예 갱신하지 않음 (현재 값/기억 값 유지)
+    if (!bForceUpdate && bFreezeThisTick)
+    {
+        return;
+    }
 
-	// Desired가 네비 밖이면 Fallback(보통 MyLoc)을 네비로 투영
-	if (ProjectToNavSafe(World, Fallback, OnNav))
-	{
-		BB->SetValueAsVector(KeyName, OnNav);
-		return;
-	}
+    FVector OnNav;
+    bool bOK = ProjectToNavSafe(World, Desired, OnNav);
+    if (!bOK)
+    {
+        // Desired가 네비 밖이면 Fallback(보통 MyLoc)을 네비로 투영
+        bOK = ProjectToNavSafe(World, Fallback, OnNav);
+        if (!bOK)
+        {
+            OnNav = Desired; // 최후
+        }
+    }
 
-	// 최후: 그냥 Desired (이 경우는 거의 없음)
-	BB->SetValueAsVector(KeyName, Desired);
+    // Throttle: 충분히 변할 때만 Set
+    if (!bForceUpdate && Mem && Mem->bHasLastMoveGoalLocation)
+    {
+        const float Delta2D = FVector::Dist2D(Mem->LastMoveGoalLocation, OnNav);
+        if (Delta2D < FMath::Max(0.f, MinDeltaToUpdate))
+        {
+            return;
+        }
+    }
+
+    BB->SetValueAsVector(KeyName, OnNav);
+
+    if (Mem)
+    {
+        Mem->LastMoveGoalLocation = OnNav;
+        Mem->bHasLastMoveGoalLocation = true;
+    }
 }
 
 // =========================================================
@@ -121,191 +147,188 @@ static void SetMoveGoalLocationProjected(
 
 UBTService_UpdateAttackTarget::UBTService_UpdateAttackTarget()
 {
-	NodeName = TEXT("Update AttackTarget (Orthodox + Player)");
-	Interval = 0.15f;
+    NodeName = TEXT("Update AttackTarget (Orthodox + Player)");
+    Interval = 0.15f;
 
-	AttackTargetKey.SelectedKeyName = TEXT("CurrentTarget");
-	InAttackRangeKey.SelectedKeyName = TEXT("bInAttackRange");
-	PlayerActorKey.SelectedKeyName = TEXT("PlayerActor");
+    AttackTargetKey.SelectedKeyName = TEXT("CurrentTarget");
+    InAttackRangeKey.SelectedKeyName = TEXT("bInAttackRange");
+    PlayerActorKey.SelectedKeyName = TEXT("PlayerActor");
 }
 
 uint16 UBTService_UpdateAttackTarget::GetInstanceMemorySize() const
 {
-	return sizeof(FUpdateAttackTargetMemory);
+    return sizeof(FUpdateAttackTargetMemory);
 }
 
 bool UBTService_UpdateAttackTarget::ComputeInAttackRange(APotatoMonster* M, AActor* Target, float Range) const
 {
-	if (!M || !IsValid(Target)) return false;
-	if (Range <= 0.f) return false;
+    if (!M || !IsValid(Target)) return false;
+    if (Range <= 0.f) return false;
 
-	//  기존 정책 유지: From은 캡슐 위치 우선
-	FVector From = M->GetActorLocation();
-	float CapsuleR = 34.f;
-	if (UCapsuleComponent* Cap = M->FindComponentByClass<UCapsuleComponent>())
-	{
-		From = Cap->GetComponentLocation();
-		CapsuleR = Cap->GetScaledCapsuleRadius();
-	}
+    FVector From = M->GetActorLocation();
+    float CapsuleR = 34.f;
+    if (UCapsuleComponent* Cap = M->FindComponentByClass<UCapsuleComponent>())
+    {
+        From = Cap->GetComponentLocation();
+        CapsuleR = Cap->GetScaledCapsuleRadius();
+    }
 
-	const float EffectiveRange = Range + CapsuleR;
-	const float RangeSq = FMath::Square(EffectiveRange);
+    const float EffectiveRange = Range + CapsuleR;
+    const float RangeSq = FMath::Square(EffectiveRange);
 
-	//  TargetGeometry 유틸: Prim->ClosestPoint / fallback bounds
-	FVector Closest2D;
-	if (GetClosestPoint2DOnTarget(Target, From, Closest2D))
-	{
-		return FVector::DistSquared2D(From, Closest2D) <= RangeSq;
-	}
+    FVector Closest2D;
+    if (GetClosestPoint2DOnTarget(Target, From, Closest2D))
+    {
+        return FVector::DistSquared2D(From, Closest2D) <= RangeSq;
+    }
 
-	// fallback (거의 안 탐)
-	return FVector::DistSquared2D(From, Target->GetActorLocation()) <= FMath::Square(EffectiveRange + BoundsRangePadding);
+    return FVector::DistSquared2D(From, Target->GetActorLocation()) <= FMath::Square(EffectiveRange + BoundsRangePadding);
 }
 
 // ---------------------------------------------------------
 //  FINAL: Dynamic corridor blocker picker
 // ---------------------------------------------------------
 AActor* UBTService_UpdateAttackTarget::FindBestBlockerOnCorridor(
-	APotatoMonster* M,
-	float SearchRange,
-	const FVector& CorridorGoalLoc) const
+    APotatoMonster* M,
+    float SearchRange,
+    const FVector& CorridorGoalLoc) const
 {
-	if (!M || !M->GetWorld()) return nullptr;
+    if (!M || !M->GetWorld()) return nullptr;
 
-	UWorld* World = M->GetWorld();
+    UWorld* World = M->GetWorld();
 
-	const FVector MyLoc = M->GetActorLocation();
+    const FVector MyLoc = M->GetActorLocation();
 
-	const float MyRadius = GetMonsterCapsuleRadiusSafe(M, 34.f);
-	const float CorridorWidth = FMath::Max(80.f, MyRadius * 2.2f + 30.f);
+    const float MyRadius = GetMonsterCapsuleRadiusSafe(M, 34.f);
+    const float CorridorWidth = FMath::Max(80.f, MyRadius * 2.2f + 30.f);
 
-	const FVector Goal2D(CorridorGoalLoc.X, CorridorGoalLoc.Y, MyLoc.Z);
-	FVector ToGoal2D = (Goal2D - MyLoc).GetSafeNormal2D();
-	if (ToGoal2D.IsNearlyZero())
-	{
-		return nullptr;
-	}
+    const FVector Goal2D(CorridorGoalLoc.X, CorridorGoalLoc.Y, MyLoc.Z);
+    FVector ToGoal2D = (Goal2D - MyLoc).GetSafeNormal2D();
+    if (ToGoal2D.IsNearlyZero())
+    {
+        return nullptr;
+    }
 
-	TArray<FOverlapResult> Overlaps;
-	const FCollisionShape Sphere = FCollisionShape::MakeSphere(SearchRange);
+    TArray<FOverlapResult> Overlaps;
+    const FCollisionShape Sphere = FCollisionShape::MakeSphere(SearchRange);
 
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(PotatoTargetingCorridor), false);
-	Params.AddIgnoredActor(M);
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(PotatoTargetingCorridor), false);
+    Params.AddIgnoredActor(M);
 
-	const FCollisionObjectQueryParams ObjParams = FCollisionObjectQueryParams::AllObjects;
+    const FCollisionObjectQueryParams ObjParams = FCollisionObjectQueryParams::AllObjects;
 
-	const bool bHit = World->OverlapMultiByObjectType(
-		Overlaps,
-		MyLoc,
-		FQuat::Identity,
-		ObjParams,
-		Sphere,
-		Params
-	);
+    const bool bHit = World->OverlapMultiByObjectType(
+        Overlaps,
+        MyLoc,
+        FQuat::Identity,
+        ObjParams,
+        Sphere,
+        Params
+    );
 
-	if (!bHit) return nullptr;
+    if (!bHit) return nullptr;
 
-	APotatoPlaceableStructure* Best = nullptr;
-	float BestScore = BIG_NUMBER;
+    APotatoPlaceableStructure* Best = nullptr;
+    float BestScore = BIG_NUMBER;
 
-	for (const FOverlapResult& R : Overlaps)
-	{
-		AActor* A = R.GetActor();
-		if (!IsValid(A)) continue;
+    for (const FOverlapResult& R : Overlaps)
+    {
+        AActor* A = R.GetActor();
+        if (!IsValid(A)) continue;
 
-		APotatoPlaceableStructure* S = Cast<APotatoPlaceableStructure>(A);
-		if (!S || !S->StructureData) continue;
-		if (!S->StructureData->bIsDestructible) continue;
-		if (S->CurrentHealth <= 0.f) continue;
+        APotatoPlaceableStructure* S = Cast<APotatoPlaceableStructure>(A);
+        if (!S || !S->StructureData) continue;
+        if (!S->StructureData->bIsDestructible) continue;
+        if (S->CurrentHealth <= 0.f) continue;
 
-		FVector SPoint2D;
-		if (!GetClosestPoint2DOnTarget(S, MyLoc, SPoint2D))
-			continue;
+        FVector SPoint2D;
+        if (!GetClosestPoint2DOnTarget(S, MyLoc, SPoint2D))
+            continue;
 
-		const FVector SLoc2D(SPoint2D.X, SPoint2D.Y, MyLoc.Z);
+        const FVector SLoc2D(SPoint2D.X, SPoint2D.Y, MyLoc.Z);
 
-		const FVector ToStruct2D = (SLoc2D - MyLoc).GetSafeNormal2D();
-		const float ForwardDot = FVector::DotProduct(ToGoal2D, ToStruct2D);
-		if (ForwardDot < 0.0f)
-			continue;
+        const FVector ToStruct2D = (SLoc2D - MyLoc).GetSafeNormal2D();
+        const float ForwardDot = FVector::DotProduct(ToGoal2D, ToStruct2D);
+        if (ForwardDot < 0.0f)
+            continue;
 
-		const float SegDist = DistancePointToSegment2D_Dist(SLoc2D, MyLoc, Goal2D);
-		if (SegDist > CorridorWidth)
-			continue;
+        const float SegDist = DistancePointToSegment2D_Dist(SLoc2D, MyLoc, Goal2D);
+        if (SegDist > CorridorWidth)
+            continue;
 
-		const float Along = FVector::DotProduct((SLoc2D - MyLoc), ToGoal2D);
-		if (Along < 0.f)
-			continue;
+        const float Along = FVector::DotProduct((SLoc2D - MyLoc), ToGoal2D);
+        if (Along < 0.f)
+            continue;
 
-		const float Score = SegDist * 10000.f + Along;
+        const float Score = SegDist * 10000.f + Along;
 
-		if (Score < BestScore)
-		{
-			BestScore = Score;
-			Best = S;
-		}
-	}
+        if (Score < BestScore)
+        {
+            BestScore = Score;
+            Best = S;
+        }
+    }
 
-	return Best;
+    return Best;
 }
 
 bool UBTService_UpdateAttackTarget::ShouldKeepCurrentStructureTarget(
-	APotatoMonster* M,
-	AActor* CurrentTarget,
-	const FVector& CorridorGoalLoc) const
+    APotatoMonster* M,
+    AActor* CurrentTarget,
+    const FVector& CorridorGoalLoc) const
 {
-	if (!M || !IsValid(CurrentTarget)) return false;
+    if (!M || !IsValid(CurrentTarget)) return false;
 
-	APotatoPlaceableStructure* S = Cast<APotatoPlaceableStructure>(CurrentTarget);
-	if (!S || !S->StructureData) return false;
-	if (!S->StructureData->bIsDestructible) return false;
-	if (S->CurrentHealth <= 0.f) return false;
+    APotatoPlaceableStructure* S = Cast<APotatoPlaceableStructure>(CurrentTarget);
+    if (!S || !S->StructureData) return false;
+    if (!S->StructureData->bIsDestructible) return false;
+    if (S->CurrentHealth <= 0.f) return false;
 
-	const float MyRadius = GetMonsterCapsuleRadiusSafe(M, 34.f);
-	const float CorridorWidth = FMath::Max(80.f, MyRadius * 2.2f + 30.f);
-	const float KeepWidth = CorridorWidth + FMath::Max(0.f, KeepTargetExtraWidth);
+    const float MyRadius = GetMonsterCapsuleRadiusSafe(M, 34.f);
+    const float CorridorWidth = FMath::Max(80.f, MyRadius * 2.2f + 30.f);
+    const float KeepWidth = CorridorWidth + FMath::Max(0.f, KeepTargetExtraWidth);
 
-	FVector SPoint2D;
-	GetClosestPoint2DOnTarget(S, M->GetActorLocation(), SPoint2D);
+    FVector SPoint2D;
+    GetClosestPoint2DOnTarget(S, M->GetActorLocation(), SPoint2D);
 
-	const FVector MyLoc = M->GetActorLocation();
-	const FVector Goal2D(CorridorGoalLoc.X, CorridorGoalLoc.Y, MyLoc.Z);
-	const FVector SLoc2D(SPoint2D.X, SPoint2D.Y, MyLoc.Z);
+    const FVector MyLoc = M->GetActorLocation();
+    const FVector Goal2D(CorridorGoalLoc.X, CorridorGoalLoc.Y, MyLoc.Z);
+    const FVector SLoc2D(SPoint2D.X, SPoint2D.Y, MyLoc.Z);
 
-	const float SegDist = DistancePointToSegment2D_Dist(SLoc2D, MyLoc, Goal2D);
-	return (SegDist <= KeepWidth);
+    const float SegDist = DistancePointToSegment2D_Dist(SLoc2D, MyLoc, Goal2D);
+    return (SegDist <= KeepWidth);
 }
 
 void UBTService_UpdateAttackTarget::UpdateBlockedState(
-	FUpdateAttackTargetMemory& Mem,
-	APotatoMonster* M,
-	const FVector& CorridorGoalLoc,
-	float DeltaSeconds) const
+    FUpdateAttackTargetMemory& Mem,
+    APotatoMonster* M,
+    const FVector& CorridorGoalLoc,
+    float DeltaSeconds) const
 {
-	if (!M) return;
+    if (!M) return;
 
-	const float Dist = FVector::Dist2D(M->GetActorLocation(), CorridorGoalLoc);
+    const float Dist = FVector::Dist2D(M->GetActorLocation(), CorridorGoalLoc);
 
-	if (Mem.LastDistToMoveTarget2D < 0.f)
-	{
-		Mem.LastDistToMoveTarget2D = Dist;
-		Mem.NoProgressTime = 0.f;
-		Mem.bBlocked = false;
-		return;
-	}
+    if (Mem.LastDistToMoveTarget2D < 0.f)
+    {
+        Mem.LastDistToMoveTarget2D = Dist;
+        Mem.NoProgressTime = 0.f;
+        Mem.bBlocked = false;
+        return;
+    }
 
-	const float Delta = Mem.LastDistToMoveTarget2D - Dist;
-	if (Delta < NoProgressMinDelta)
-	{
-		Mem.NoProgressTime += DeltaSeconds;
-	}
-	else
-	{
-		Mem.NoProgressTime = 0.f;
-	}
+    const float Delta = Mem.LastDistToMoveTarget2D - Dist;
+    if (Delta < NoProgressMinDelta)
+    {
+        Mem.NoProgressTime += DeltaSeconds;
+    }
+    else
+    {
+        Mem.NoProgressTime = 0.f;
+    }
 
-	Mem.bBlocked = (Mem.NoProgressTime >= NoProgressHoldTime);
-	Mem.LastDistToMoveTarget2D = Dist;
+    Mem.bBlocked = (Mem.NoProgressTime >= NoProgressHoldTime);
+    Mem.LastDistToMoveTarget2D = Dist;
 }
 
 // ---------------------------------------------------------
@@ -313,209 +336,254 @@ void UBTService_UpdateAttackTarget::UpdateBlockedState(
 // ---------------------------------------------------------
 void UBTService_UpdateAttackTarget::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
-	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
+    Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
-	UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
-	AAIController* AIC = OwnerComp.GetAIOwner();
-	if (!BB || !AIC) return;
+    UBlackboardComponent* BB = OwnerComp.GetBlackboardComponent();
+    AAIController* AIC = OwnerComp.GetAIOwner();
+    if (!BB || !AIC) return;
 
-	APotatoMonster* M = Cast<APotatoMonster>(AIC->GetPawn());
-	if (!M || M->bIsDead) return;
+    APotatoMonster* M = Cast<APotatoMonster>(AIC->GetPawn());
+    if (!M || M->bIsDead) return;
 
-	FUpdateAttackTargetMemory* Mem = reinterpret_cast<FUpdateAttackTargetMemory*>(NodeMemory);
+    FUpdateAttackTargetMemory* Mem = reinterpret_cast<FUpdateAttackTargetMemory*>(NodeMemory);
 
-	// =========================================================
-	// 1) Warehouse 확보
-	// =========================================================
-	AActor* Warehouse = Cast<AActor>(BB->GetValueAsObject(WarehouseKeyName));
-	if (!IsValid(Warehouse))
-	{
-		Warehouse = M->WarehouseActor.Get();
-		if (IsValid(Warehouse))
-		{
-			BB->SetValueAsObject(WarehouseKeyName, Warehouse);
-		}
-	}
+    // =========================================================
+    // 1) Warehouse 확보
+    // =========================================================
+    AActor* Warehouse = Cast<AActor>(BB->GetValueAsObject(WarehouseKeyName));
+    if (!IsValid(Warehouse))
+    {
+        Warehouse = M->WarehouseActor.Get();
+        if (IsValid(Warehouse))
+        {
+            BB->SetValueAsObject(WarehouseKeyName, Warehouse);
+        }
+    }
 
-	// =========================================================
-	// 2) Corridor Goal 결정
-	// =========================================================
-	const bool bIsLaneMode = BB->GetValueAsBool(TEXT("bIsLaneMode"));
+    // =========================================================
+    // 2) Corridor Goal 결정
+    // =========================================================
+    const bool bIsLaneMode = BB->GetValueAsBool(TEXT("bIsLaneMode"));
 
-	AActor* LaneMoveTarget = nullptr;
-	if (bIsLaneMode)
-	{
-		LaneMoveTarget = Cast<AActor>(BB->GetValueAsObject(TEXT("MoveTarget")));
-	}
+    AActor* LaneMoveTarget = nullptr;
+    if (bIsLaneMode)
+    {
+        LaneMoveTarget = Cast<AActor>(BB->GetValueAsObject(TEXT("MoveTarget")));
+    }
 
-	const FVector MyLoc = M->GetActorLocation();
-	const FVector CorridorGoalLoc =
-		IsValid(LaneMoveTarget) ? LaneMoveTarget->GetActorLocation() :
-		(IsValid(Warehouse) ? Warehouse->GetActorLocation() : MyLoc);
+    const FVector MyLoc = M->GetActorLocation();
+    const FVector CorridorGoalLoc =
+        IsValid(LaneMoveTarget) ? LaneMoveTarget->GetActorLocation() :
+        (IsValid(Warehouse) ? Warehouse->GetActorLocation() : MyLoc);
 
-	// =========================================================
-	// 3) 막힘 감지(옵션)
-	// =========================================================
-	if (Mem)
-	{
-		UpdateBlockedState(*Mem, M, CorridorGoalLoc, DeltaSeconds);
-	}
+    // =========================================================
+    // 3) 막힘 감지(옵션)
+    // =========================================================
+    if (Mem)
+    {
+        UpdateBlockedState(*Mem, M, CorridorGoalLoc, DeltaSeconds);
+    }
 
-	const float Range = M->FinalStats.AttackRange;
+    const float Range = M->FinalStats.AttackRange;
 
-	// =========================================================
-	// 3.5) Player 확보 + "Warehouse 근처면 무시"
-	// =========================================================
-	APawn* PlayerPawn = GetPlayerPawnSafe(M->GetWorld());
-	const bool bHasPlayer = IsValidAttackablePlayer(M, PlayerPawn);
+    // =========================================================
+    // 3.5) Player 확보 + "Warehouse 근처면 무시"
+    // =========================================================
+    APawn* PlayerPawn = GetPlayerPawnSafe(M->GetWorld());
+    const bool bHasPlayer = IsValidAttackablePlayer(M, PlayerPawn);
 
-	if (PlayerActorKey.SelectedKeyName != NAME_None)
-	{
-		if (bHasPlayer) BB->SetValueAsObject(PlayerActorKey.SelectedKeyName, PlayerPawn);
-		else BB->ClearValue(PlayerActorKey.SelectedKeyName);
-	}
+    if (PlayerActorKey.SelectedKeyName != NAME_None)
+    {
+        if (bHasPlayer) BB->SetValueAsObject(PlayerActorKey.SelectedKeyName, PlayerPawn);
+        else BB->ClearValue(PlayerActorKey.SelectedKeyName);
+    }
 
-	const float DistToWarehouse2D =
-		IsValid(Warehouse) ? FVector::Dist2D(MyLoc, Warehouse->GetActorLocation()) : BIG_NUMBER;
+    const float DistToWarehouse2D =
+        IsValid(Warehouse) ? FVector::Dist2D(MyLoc, Warehouse->GetActorLocation()) : BIG_NUMBER;
 
-	const bool bIgnorePlayerNearWarehouse =
-		IsValid(Warehouse) && (DistToWarehouse2D <= IgnorePlayerWhenNearWarehouseDist);
+    const bool bIgnorePlayerNearWarehouse =
+        IsValid(Warehouse) && (DistToWarehouse2D <= IgnorePlayerWhenNearWarehouseDist);
 
-	// =========================================================
-	// 4) 공격 중이면 타겟 재선정 잠금
-	// =========================================================
-	const bool bIsAttacking = BB->GetValueAsBool(TEXT("bIsAttacking"));
+    // =========================================================
+    // 4) 공격 중이면 타겟 재선정 잠금
+    // =========================================================
+    const bool bIsAttacking = BB->GetValueAsBool(TEXT("bIsAttacking"));
 
-	AActor* Current = Cast<AActor>(BB->GetValueAsObject(AttackTargetKey.SelectedKeyName));
-	AActor* Target = nullptr;
+    AActor* Current = Cast<AActor>(BB->GetValueAsObject(AttackTargetKey.SelectedKeyName));
+    AActor* Target = nullptr;
 
-	if (bIsAttacking && IsValid(Current))
-	{
-		const bool bCurrentIsPlayer = (bHasPlayer && Current == PlayerPawn);
-		if (bCurrentIsPlayer || (IsValid(Warehouse) && Current == Warehouse) || IsAliveDestructibleStructure(Current))
-		{
-			Target = Current;
-		}
-	}
+    if (bIsAttacking && IsValid(Current))
+    {
+        const bool bCurrentIsPlayer = (bHasPlayer && Current == PlayerPawn);
+        if (bCurrentIsPlayer || (IsValid(Warehouse) && Current == Warehouse) || IsAliveDestructibleStructure(Current))
+        {
+            Target = Current;
+        }
+    }
 
-	// =========================================================
-	// 5) 타겟 선정
-	// =========================================================
-	if (!IsValid(Target))
-	{
-		Target = Warehouse;
+    // =========================================================
+    // 5) 타겟 선정
+    // =========================================================
+    if (!IsValid(Target))
+    {
+        Target = Warehouse;
 
-		if (IsValid(Current) && Current != Warehouse && ShouldKeepCurrentStructureTarget(M, Current, CorridorGoalLoc))
-		{
-			Target = Current;
-		}
-		else
-		{
-			float SearchRange = FMath::Max(Range + CorridorSearchExtraRange, MinCorridorSearchRange);
+        if (IsValid(Current) && Current != Warehouse && ShouldKeepCurrentStructureTarget(M, Current, CorridorGoalLoc))
+        {
+            Target = Current;
+        }
+        else
+        {
+            float SearchRange = FMath::Max(Range + CorridorSearchExtraRange, MinCorridorSearchRange);
 
-			if (bIsLaneMode)
-			{
-				SearchRange = FMath::Max(SearchRange, 800.f);
-			}
+            if (bIsLaneMode)
+            {
+                SearchRange = FMath::Max(SearchRange, 800.f);
+            }
 
-			if (Mem && Mem->bBlocked)
-			{
-				SearchRange += BlockedSearchExtra;
-			}
+            if (Mem && Mem->bBlocked)
+            {
+                SearchRange += BlockedSearchExtra;
+            }
 
-			if (AActor* Blocker = FindBestBlockerOnCorridor(M, SearchRange, CorridorGoalLoc))
-			{
-				Target = Blocker;
-			}
-		}
-	}
+            if (AActor* Blocker = FindBestBlockerOnCorridor(M, SearchRange, CorridorGoalLoc))
+            {
+                Target = Blocker;
+            }
+        }
+    }
 
-	// =========================================================
-	// 6) 플레이어 override
-	// =========================================================
-	const bool bTargetIsWarehouse = (IsValid(Target) && IsValid(Warehouse) && Target == Warehouse);
-	const bool bTargetIsBlocker = (IsValid(Target) && Target != Warehouse && IsAliveDestructibleStructure(Target));
+    // =========================================================
+    // 6) 플레이어 override
+    // =========================================================
+    const bool bTargetIsWarehouse = (IsValid(Target) && IsValid(Warehouse) && Target == Warehouse);
+    const bool bTargetIsBlocker = (IsValid(Target) && Target != Warehouse && IsAliveDestructibleStructure(Target));
 
-	bool bTargetInRange = IsValid(Target) ? ComputeInAttackRange(M, Target, Range) : false;
-	const bool bBlockerInRange = (bTargetIsBlocker && bTargetInRange);
+    bool bTargetInRange = IsValid(Target) ? ComputeInAttackRange(M, Target, Range) : false;
+    const bool bBlockerInRange = (bTargetIsBlocker && bTargetInRange);
 
-	const float PlayerCheckRange = Range + PlayerSenseExtraRange;
-	const bool bPlayerInRange =
-		(!bIgnorePlayerNearWarehouse && bHasPlayer)
-		? ComputeInAttackRange(M, PlayerPawn, PlayerCheckRange)
-		: false;
+    const float PlayerCheckRange = Range + PlayerSenseExtraRange;
+    const bool bPlayerInRange =
+        (!bIgnorePlayerNearWarehouse && bHasPlayer)
+        ? ComputeInAttackRange(M, PlayerPawn, PlayerCheckRange)
+        : false;
 
-	if (!bBlockerInRange && bPlayerInRange)
-	{
-		Target = PlayerPawn;
-		bTargetInRange = true;
-	}
+    if (!bBlockerInRange && bPlayerInRange)
+    {
+        Target = PlayerPawn;
+        bTargetInRange = true;
+    }
 
-	// =========================================================
-	// 7) BB 반영
-	// =========================================================
-	BB->SetValueAsObject(AttackTargetKey.SelectedKeyName, Target);
-	BB->SetValueAsBool(InAttackRangeKey.SelectedKeyName, bTargetInRange);
+    // =========================================================
+    // 7) BB 반영
+    // =========================================================
+    BB->SetValueAsObject(AttackTargetKey.SelectedKeyName, Target);
+    BB->SetValueAsBool(InAttackRangeKey.SelectedKeyName, bTargetInRange);
 
-	const bool bTargetIsPlayer = (bHasPlayer && IsValid(Target) && Target == PlayerPawn);
-	const bool bFinalTargetIsWarehouse = (IsValid(Target) && IsValid(Warehouse) && Target == Warehouse);
-	const bool bFinalTargetIsBlocker = (IsValid(Target) && Target != Warehouse && IsAliveDestructibleStructure(Target));
+    const bool bTargetIsPlayer = (bHasPlayer && IsValid(Target) && Target == PlayerPawn);
+    const bool bFinalTargetIsWarehouse = (IsValid(Target) && IsValid(Warehouse) && Target == Warehouse);
+    const bool bFinalTargetIsBlocker = (IsValid(Target) && Target != Warehouse && IsAliveDestructibleStructure(Target));
 
-	// ✅ 기존 "타겟 바뀔 때 StopMovement"는 정체/멈춤을 유발할 수 있어 제거
-	if (Mem)
-	{
-		Mem->LastTarget = Target;
-	}
+    // ✅ 타겟 변경 여부(Stable MoveGoalLocation에 force 조건으로 사용)
+    const bool bTargetChanged = (Mem && Mem->LastTarget.Get() != Target);
+    if (Mem && bTargetChanged)
+    {
+        // 타겟이 바뀌면 이전 MoveGoalLocation 기억을 리셋해도 되고(더 공격적으로),
+        // 그대로 둬도 되는데, 여기서는 "초기 1회 강제 업데이트"를 위해 bHas를 꺼준다.
+        Mem->bHasLastMoveGoalLocation = false;
+    }
 
-	// =========================================================
-	// 8) MoveGoalLocation 운영 규칙
-	// =========================================================
-	if (!IsValid(Target))
-	{
-		BB->ClearValue(MoveGoalLocationKeyName);
-	}
-	else if (bTargetInRange)
-	{
-		// 범위 안이면 정지 + "내 위치(네비 보정)"로 세팅
-		AIC->StopMovement();
-		SetMoveGoalLocationProjected(BB, MoveGoalLocationKeyName, M->GetWorld(), MyLoc, MyLoc);
-	}
-	else
-	{
-		const float CapsuleR = GetMonsterCapsuleRadiusSafe(M, 34.f);
-		const float Extra = CapsuleR + ApproachExtraOffset;
+    if (Mem)
+    {
+        Mem->LastTarget = Target;
+    }
 
-		// 플레이어 추격용
-		if (bTargetIsPlayer)
-		{
-			FVector Desired = Target->GetActorLocation();
-			FVector Approach;
-			if (ComputeApproachPoint2D(M, Target, Extra, Approach))
-			{
-				Desired = Approach;
-			}
+    // =========================================================
+    // 8) MoveGoalLocation 운영 규칙 (Stable 적용)
+    // =========================================================
+    if (!IsValid(Target))
+    {
+        BB->ClearValue(MoveGoalLocationKeyName);
+        if (Mem) Mem->bHasLastMoveGoalLocation = false;
+    }
+    else if (bTargetInRange)
+    {
+        // 범위 안이면 정지 + "내 위치(네비 보정)"로 세팅
+        AIC->StopMovement();
 
-			// ✅ 핵심: 네비 위로 보정해서 "갈 수 있는 점"만 넣기
-			SetMoveGoalLocationProjected(BB, MoveGoalLocationKeyName, M->GetWorld(), Desired, MyLoc);
-		}
-		// 레인 따라가는 중 + Warehouse 기본이면 MoveGoalLocation은 비움
-		else if (bIsLaneMode && bFinalTargetIsWarehouse && !bFinalTargetIsBlocker)
-		{
-			BB->ClearValue(MoveGoalLocationKeyName);
-		}
-		else
-		{
-			FVector Desired = Target->GetActorLocation();
-			FVector Approach;
-			if (ComputeApproachPoint2D(M, Target, Extra, Approach))
-			{
-				Desired = Approach;
-			}
+        SetMoveGoalLocationProjected_Stable(
+            BB,
+            MoveGoalLocationKeyName,
+            M->GetWorld(),
+            MyLoc,
+            MyLoc,
+            Mem,
+            MoveGoalUpdateMinDelta,
+            /*bFreezeThisTick=*/false,
+            /*bForceUpdate=*/true // InRange면 확정적으로 고정
+        );
+    }
+    else
+    {
+        const float CapsuleR = GetMonsterCapsuleRadiusSafe(M, 34.f);
+        const float Extra = CapsuleR + ApproachExtraOffset;
 
-			// ✅ 핵심: 네비 위로 보정해서 "DamageArea 앞 멈춤" 방지
-			SetMoveGoalLocationProjected(BB, MoveGoalLocationKeyName, M->GetWorld(), Desired, MyLoc);
-		}
-	}
+        // ✅ "타겟이 같은 동안엔 근접 구간에서 MoveGoalLocation 고정"
+        const bool bSameTarget = (!bTargetChanged);
+        const float DistToTarget2D = FVector::Dist2D(MyLoc, Target->GetActorLocation());
+        const bool bFreezeMoveGoalThisTick =
+            (bSameTarget && DistToTarget2D <= FreezeMoveGoalWhenCloseDist);
 
-	BB->SetValueAsObject(MoveGoalKeyName, Target);
+        // 플레이어 추격용
+        if (bTargetIsPlayer)
+        {
+            FVector Desired = Target->GetActorLocation();
+            FVector Approach;
+            if (ComputeApproachPoint2D(M, Target, Extra, Approach))
+            {
+                Desired = Approach;
+            }
+
+            SetMoveGoalLocationProjected_Stable(
+                BB,
+                MoveGoalLocationKeyName,
+                M->GetWorld(),
+                Desired,
+                MyLoc,
+                Mem,
+                MoveGoalUpdateMinDelta,
+                bFreezeMoveGoalThisTick,
+                /*bForceUpdate=*/bTargetChanged // 타겟 바뀐 틱은 1회 강제
+            );
+        }
+        // 레인 따라가는 중 + Warehouse 기본이면 MoveGoalLocation은 비움
+        else if (bIsLaneMode && bFinalTargetIsWarehouse && !bFinalTargetIsBlocker)
+        {
+            BB->ClearValue(MoveGoalLocationKeyName);
+            if (Mem) Mem->bHasLastMoveGoalLocation = false;
+        }
+        else
+        {
+            FVector Desired = Target->GetActorLocation();
+            FVector Approach;
+            if (ComputeApproachPoint2D(M, Target, Extra, Approach))
+            {
+                Desired = Approach;
+            }
+
+            SetMoveGoalLocationProjected_Stable(
+                BB,
+                MoveGoalLocationKeyName,
+                M->GetWorld(),
+                Desired,
+                MyLoc,
+                Mem,
+                MoveGoalUpdateMinDelta,
+                bFreezeMoveGoalThisTick,
+                /*bForceUpdate=*/bTargetChanged
+            );
+        }
+    }
+
+    BB->SetValueAsObject(MoveGoalKeyName, Target);
 }
