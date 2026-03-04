@@ -187,13 +187,6 @@ APotatoMonster::APotatoMonster()
 		// Overlap 이벤트가 나게
 		HitCapsule->SetGenerateOverlapEvents(true);
 	}
-
-	if (UCapsuleComponent* RootCap = GetCapsuleComponent())
-	{
-		//  핵심: 작은 루트 캡슐이 Projectile을 잡지 않도록 무시
-		RootCap->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
-		RootCap->SetCollisionResponseToChannel(ECC_PhysicsBody, ECR_Ignore);
-	}
 }
 
 void APotatoMonster::BeginPlay()
@@ -261,13 +254,10 @@ void APotatoMonster::BeginPlay()
 	bHasLastHitPoint = false;
 	LastHitPointWS = FVector::ZeroVector;
 	LastHitBoneName = NAME_None;
-
-	UE_LOG(LogTemp, Warning, TEXT("[Monster] BeginPlay Pawn=%s Controller=%s AutoPossessAI=%d AIClass=%s"),
-		*GetNameSafe(this),
-		*GetNameSafe(GetController()),
-		(int32)AutoPossessAI,
-		*GetNameSafe(AIControllerClass)
-	);
+	if (UCapsuleComponent* RootCap = GetCapsuleComponent())
+	{
+		RootCap->SetCollisionProfileName(TEXT("MonsterRoot"));
+	}
 }
 
 // ============================================================

@@ -15,6 +15,19 @@ static FVector ClosestPointOnAABB2D_Local(const FVector& Point, const FVector& O
 	return Closest;
 }
 
+static bool HasAnyBlockResponse(UPrimitiveComponent* C)
+{
+	const FCollisionResponseContainer& Responses = C->GetCollisionResponseToChannels();
+	for (int32 i = 0; i < ECC_MAX; ++i)
+	{
+		if (Responses.GetResponse(ECollisionChannel(i)) == ECR_Block)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 UPrimitiveComponent* FindFirstCollisionPrimitive(AActor* Target)
 {
 	if (!IsValid(Target)) return nullptr;
@@ -22,19 +35,19 @@ UPrimitiveComponent* FindFirstCollisionPrimitive(AActor* Target)
 	USceneComponent* Root = Target->GetRootComponent();
 	if (!IsValid(Root)) return nullptr;
 
-	if (UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(Root))
-	{
-		if (IsValid(RootPrim) &&
-			RootPrim->IsRegistered() &&
-			RootPrim->GetCollisionEnabled() != ECollisionEnabled::NoCollision)
-		{
-			return RootPrim;
-		}
-	}
-
 	TInlineComponentArray<UPrimitiveComponent*> Prims;
 	Target->GetComponents(Prims);
 
+	// 1차: Block 응답이 있는 컴포넌트 우선
+	for (UPrimitiveComponent* C : Prims)
+	{
+		if (!IsValid(C)) continue;
+		if (!C->IsRegistered()) continue;
+		if (C->GetCollisionEnabled() == ECollisionEnabled::NoCollision) continue;
+		if (HasAnyBlockResponse(C)) return C;  // ← Block 있으면 바로 반환
+	}
+
+	// 2차: fallback - 기존 동작 유지 (Block 없어도 collision 있으면 반환)
 	for (UPrimitiveComponent* C : Prims)
 	{
 		if (!IsValid(C)) continue;
