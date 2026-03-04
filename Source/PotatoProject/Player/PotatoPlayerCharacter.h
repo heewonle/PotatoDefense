@@ -100,6 +100,7 @@ protected:
 private:
 	float TargetCameraDistance;
 	bool IsBuildingMode;
+	bool bIsUIHidden = false;
 	float LastHitReactionTime = -10.0f;
 	FTimerHandle DeathTimerHandle;
     FTimerHandle RegenDelayTimerHandle;
@@ -180,6 +181,9 @@ protected:
 	
 	UFUNCTION()
 	void OnNextDialogue(const FInputActionValue& Value);
+	
+	UFUNCTION()
+	void OnToggleUI(const FInputActionValue& Value);
 
 	UFUNCTION()
 	void OnDeath();

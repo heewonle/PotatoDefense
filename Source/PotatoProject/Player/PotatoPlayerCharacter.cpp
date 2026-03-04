@@ -12,6 +12,7 @@
 #include "Combat/PotatoWeaponData.h"
 #include "Core/PotatoDayNightCycle.h"
 #include "Core/Interactable.h"
+#include "UI/PotatoPlayerHUD.h"
 
 APotatoPlayerCharacter::APotatoPlayerCharacter()
 {
@@ -239,6 +240,15 @@ void APotatoPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 				 &APotatoPlayerCharacter::OnNextDialogue
 				 );
 			}
+			if (PlayerController->ToggleUIAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->ToggleUIAction,
+					ETriggerEvent::Started,
+					this,
+					&APotatoPlayerCharacter::OnToggleUI
+					);
+			}
 		}
 	}
 }
@@ -452,6 +462,19 @@ void APotatoPlayerCharacter::OnNextDialogue(const FInputActionValue& Value)
 	if (OnNextDialoguePressed.IsBound())
 	{
 		OnNextDialoguePressed.Broadcast();
+	}
+}
+
+void APotatoPlayerCharacter::OnToggleUI(const FInputActionValue& Value)
+{
+	bIsUIHidden = !bIsUIHidden;
+	
+	if (APotatoPlayerController* PlayerController = Cast<APotatoPlayerController>(GetController()))
+	{
+		if (PlayerController->PlayerHUDWidget)
+		{
+			PlayerController->PlayerHUDWidget->SetCinematicMode(bIsUIHidden);
+		}
 	}
 }
 
