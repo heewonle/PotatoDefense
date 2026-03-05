@@ -1,4 +1,4 @@
-﻿// PotatoMonster.cpp (BUILDABLE - HPBar crash guard + Safe preset/apply + AI ensure + HitCapsule for wider hits)
+// PotatoMonster.cpp (BUILDABLE - HPBar crash guard + Safe preset/apply + AI ensure + HitCapsule for wider hits)
 //
 // 핵심:
 // - BeginPlay 이전 RefreshHPBar/UpdateHPBarLocation 차단
@@ -257,7 +257,7 @@ void APotatoMonster::BeginPlay()
 	if (UCapsuleComponent* RootCap = GetCapsuleComponent())
 	{
 		RootCap->SetCollisionProfileName(TEXT("MonsterRoot"));
-		RootCap->OnComponentHit.AddDynamic(this, &APotatoMonster::Dbg_OnRootHit);
+		//RootCap->OnComponentHit.AddDynamic(this, &APotatoMonster::Dbg_OnRootHit);
 	}
 	if (UCharacterMovementComponent* Move = GetCharacterMovement())
 	{
